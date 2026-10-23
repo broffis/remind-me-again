@@ -6,7 +6,7 @@ import subprocess
 import sys
 
 from autosave import (
-    copilot_home, hook_configuration, read_json, regular_path, repository,
+    EVENTS, copilot_home, hook_configuration, read_json, regular_path, repository,
     settings, write_json,
 )
 from storage import project_directory
@@ -118,6 +118,142 @@ def setup(cwd, approve=False, dry_run=False):
                 f"{', '.join(completed) or 'none'}. Correct the error and rerun setup."
             ) from error
     return [str(path) for path, _ in writes]
+
+
+def plan_removal(cwd, installation, global_cleanup=False):
+    """Validate all targeted configuration before removing any of it."""
+    cwd = Path(cwd).expanduser().resolve(strict=True)
+    installation = Path(installation).resolve()
+    root = repository(cwd)
+    changes = []
+
+    def remove_server(path, project):
+        config = existing_object(path)
+        servers = config.get("mcpServers", config)
+        if not isinstance(servers, dict):
+            raise ValueError(f"Expected an MCP server map: {path}")
+        if SERVER not in servers:
+            return
+        server = servers[SERVER]
+        script = str(installation / "scripts/checkpoint_mcp.py")
+        if not isinstance(server, dict):
+            raise ValueError(f"Cannot identify owned MCP server: {path}")
+        args = server.get("args", [])
+        if (
+            server.get("type") not in ("local", "stdio")
+            or not isinstance(args, list) or len(args) != 4
+            or args[:3] != ["-B", script, "--cwd"]
+            or not isinstance(args[3], str)
+            or not isinstance(server.get("command"), str)
+            or server.get("tools") not in (
+                ["save_checkpoint"], ["get_checkpoint_context", "save_checkpoint"]
+            )
+            or set(server) - {"type", "command", "args", "env", "tools"}
+        ):
+            raise ValueError(f"Refusing to remove an unrecognized MCP server: {path}")
+        if project is not None and repository(Path(args[3])) != project:
+            raise ValueError(f"MCP server is bound to another project: {path}")
+        del servers[SERVER]
+        if "mcpServers" in config and not servers:
+            del config["mcpServers"]
+        changes.append((path, config or None))
+
+    def remove_hooks(path):
+        regular_path(path)
+        if not path.exists():
+            return
+        config = read_json(path)
+        hooks = config.get("hooks")
+        if config.get("version") != 1 or not isinstance(hooks, dict):
+            raise ValueError(f"Refusing to remove an unrecognized hook: {path}")
+        script = str(installation / "scripts/autosave.py")
+        changed = False
+        for event in EVENTS:
+            entries = hooks.get(event, [])
+            if not isinstance(entries, list):
+                raise ValueError(f"Invalid hook entries: {path}")
+            remaining = []
+            for entry in entries:
+                if (
+                    isinstance(entry, dict)
+                    and entry.get("args") == [script, "hook", event]
+                    and entry.get("type") == "command"
+                    and isinstance(entry.get("exec"), str)
+                    and entry.get("timeoutSec") == 10
+                    and not set(entry) - {"type", "exec", "args", "timeoutSec"}
+                ):
+                    changed = True
+                else:
+                    remaining.append(entry)
+            if entries and not remaining:
+                del hooks[event]
+            elif remaining:
+                hooks[event] = remaining
+        if not changed:
+            raise ValueError(f"Refusing to remove an unrecognized hook: {path}")
+        if not hooks:
+            del config["hooks"]
+        changes.append((path, None if config == {"version": 1} else config))
+
+    def remove_settings(path):
+        regular_path(path)
+        if not path.exists():
+            return
+        config = settings(path)
+        original = dict(config)
+        for name in ("autosave", "autoread", "checkpoint_transport"):
+            config.pop(name, None)
+        if config != original:
+            changes.append((path, None if config == {"version": 1} else config))
+
+    if root is not None:
+        remove_server(root / ".mcp.json", root)
+        remove_server(root / ".github/mcp.json", root)
+        remove_hooks(root / ".github/hooks/session-info.json")
+        remove_settings(root / ".github/session-info.json")
+        permissions_path = copilot_home() / "permissions-config.json"
+        if not permissions_path.exists() and permissions_path.with_suffix("").exists():
+            raise ValueError("Legacy permissions-config exists; migrate it in Copilot first.")
+        permissions = existing_object(permissions_path)
+        locations = permissions.get("locations", {})
+        if not isinstance(locations, dict):
+            raise ValueError("Permission locations must be an object.")
+        location = locations.get(permission_location(cwd), {})
+        if not isinstance(location, dict):
+            raise ValueError("Saved permission location must be an object.")
+        approvals = location.get("tool_approvals", [])
+        if not isinstance(approvals, list) or any(
+            not isinstance(approval, dict) for approval in approvals
+        ):
+            raise ValueError("Saved tool approvals must be an array of objects.")
+        remaining = [
+            approval for approval in approvals
+            if approval not in (APPROVAL, CONTEXT_APPROVAL)
+        ]
+        if remaining != approvals:
+            location["tool_approvals"] = remaining
+            changes.append((permissions_path, permissions))
+    if global_cleanup:
+        remove_server(copilot_home() / "mcp-config.json", None)
+        remove_hooks(copilot_home() / "hooks/session-info.json")
+        remove_settings(copilot_home() / "session-info-settings.json")
+    return changes
+
+
+def remove_setup(changes):
+    completed = []
+    try:
+        for path, value in changes:
+            if value is None:
+                regular_path(path).unlink()
+            else:
+                write_json(path, value)
+            completed.append(str(path))
+    except (OSError, ValueError) as error:
+        raise OSError(
+            f"Cleanup incomplete: {error}. Already updated: "
+            f"{', '.join(completed) or 'none'}. Rerun uninstall after correcting the error."
+        ) from error
 
 
 def main():

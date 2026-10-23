@@ -4,12 +4,15 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
 const usage = `Usage: session-summary-skill <install|update|uninstall> [--skills-dir <directory>]
+       session-summary-skill uninstall [--cwd <directory>] [--global] [--dry-run] [--skills-dir <directory>]
        session-summary-skill setup-mcp [--cwd <directory>] [--skills-dir <directory>] [--approve] [--dry-run]
 
 Installs the bundled Copilot skill using Python 3.9+ on macOS or Linux.
 Install/update never change automation settings.
 setup-mcp explicitly enables project MCP autosave using the installed skill.
 --approve saves only this repository's checkpoint lookup/save permissions; close Copilot first.
+Uninstall removes current project setup/approvals; --global also removes global setup.
+Saved summaries are preserved. Close Copilot before uninstalling.
 `;
 
 function main(args) {
@@ -27,19 +30,23 @@ function main(args) {
   );
   let skillsDirectory = path.join(require('node:os').homedir(), '.copilot', 'skills');
   const setupOptions = [];
-  if (setup) {
+  if (setup || action === 'uninstall') {
     validOptions = true;
     const seen = new Set();
     for (let i = 0; i < options.length; i++) {
       const option = options[i];
       if (seen.has(option)) { validOptions = false; break; }
       seen.add(option);
-      if (['--approve', '--dry-run'].includes(option)) {
+      const flags = setup ? ['--approve', '--dry-run'] : ['--global', '--dry-run'];
+      if (flags.includes(option)) {
         setupOptions.push(option);
       } else if (['--cwd', '--skills-dir'].includes(option)
         && options[i + 1] && !options[i + 1].startsWith('-')) {
         const value = options[++i];
-        if (option === '--skills-dir') skillsDirectory = path.resolve(value);
+        if (option === '--skills-dir') {
+          skillsDirectory = path.resolve(value);
+          if (!setup) setupOptions.push(option, value);
+        }
         else setupOptions.push(option, value);
       } else { validOptions = false; break; }
     }
@@ -64,7 +71,7 @@ function main(args) {
   if (!setup && action !== 'install') {
     pythonArgs.push(`--${action}`);
   }
-  pythonArgs.push(...(setup ? setupOptions : options));
+  pythonArgs.push(...(setup || action === 'uninstall' ? setupOptions : options));
   const result = spawnSync('python3', pythonArgs, { stdio: 'inherit' });
   if (result.error) {
     const message = result.error.code === 'ENOENT'

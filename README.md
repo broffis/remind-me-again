@@ -75,8 +75,8 @@ npx @broffis/session-summary-skill@latest update
 npx @broffis/session-summary-skill@latest uninstall
 ```
 
-The same safety rules below apply, including disabling/removing hook
-registrations **before uninstalling**. An install made from a ZIP can be updated
+The same safety rules below apply: **close Copilot before uninstalling**.
+An install made from a ZIP can be updated
 or uninstalled through npx, and vice versa. Pass `--skills-dir <directory>` to
 any action for a custom installation parent.
 
@@ -98,18 +98,44 @@ unknown existing folders, and development symlinks. Back up local modifications
 and resolve conflicts manually instead of forcing an update. Updating preserves
 the installed path used by hooks and does not change opt-in settings.
 
-Before uninstalling, disable automation and remove this skill's
-`session-info.json` hook registrations from every configured repo and the global
-hooks directory. Disabling settings alone leaves hook commands registered.
-Then, from an extracted release folder, run:
+Close Copilot before uninstalling, because cleanup updates its saved permission
+file. From an extracted release folder, select the project to clean:
 
 ```sh
-python3 install.py --uninstall
+python3 install.py --uninstall --cwd /absolute/path/to/project
 ```
 
-Only the unmodified managed skill is removed. Saved summaries and settings are
-preserved. `--skills-dir <directory>` selects a different installation parent
-for either operation; default is `~/.copilot/skills`.
+Uninstall removes the unmodified managed skill and the selected project's
+recognized setup: this installation's `session-summary` server in `.mcp.json`
+or `.github/mcp.json`, its generated hooks in `.github/hooks/session-info.json`,
+the autosave/autoread/transport keys in `.github/session-info.json`, and the
+two exact saved MCP approvals in that repository's permission entry. Unrelated
+servers, hooks, settings, approvals, and allowed directories are preserved.
+Linked worktrees share their main repository's approval scope.
+
+The npm equivalent is:
+
+```sh
+npx @broffis/session-summary-skill@latest uninstall --cwd /absolute/path/to/project
+```
+
+`--cwd` defaults to the current directory; outside Git, project cleanup is skipped.
+Use `--dry-run` to validate and preview without changing any files. Add
+`--global` to explicitly remove this installation's recognized global MCP server,
+global session-info hooks, and global automation settings under `COPILOT_HOME`
+(default `~/.copilot`). Global cleanup does not scan other projects or revoke
+their saved approvals. Without this flag global setup remains, including any
+global automation that could otherwise apply to the current project.
+
+**Saved summaries, rollups, and session storage are never deleted.** The skill
+installation is shared: other projects' setup remains and may reference the
+removed skill. Clean those projects explicitly before removing a shared install,
+or reinstall before using them again. Cleanup can be rerun even after the skill
+has been removed. Unrecognized/conflicting definitions, symlinks, invalid JSON,
+and unmigrated legacy permissions fail explicitly before cleanup writes begin.
+An I/O failure reports partial progress; correct it and rerun.
+`--skills-dir <directory>` selects a different installation parent for either
+operation; default is `~/.copilot/skills`.
 
 ### Development installation
 
@@ -351,8 +377,8 @@ The writer remains bound to the exact setup directory, including subdirectories.
 
 To revoke the saved approval, use Copilot's permission controls or, with Copilot
 closed, remove only the matching MCP approval from this repository's entry in
-`permissions-config.json`. Uninstall does not revoke approvals or remove the
-project's MCP registration/hooks; remove those explicitly too.
+`permissions-config.json`. Uninstall now removes the current project's two
+exact approvals and recognized setup automatically; run it with Copilot closed.
 
 #### Manual setup
 
@@ -408,7 +434,8 @@ python3 "$HOME/.copilot/skills/session-summary/scripts/autosave.py" \
 
 Installation and updates alone never register this server, select MCP mode, or
 pre-approve tools; only the separate setup command performs those opt-in actions.
-When uninstalling, also remove its explicit MCP registration.
+Uninstall cleans recognized project registration; global registration requires
+the explicit `--global` flag. Custom unrecognized definitions need manual cleanup.
 
 ### How it works
 

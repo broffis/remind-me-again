@@ -92,6 +92,11 @@ class SetupMCPTests(unittest.TestCase):
         setup_mcp.setup(worktree, approve=True)
         permissions = autosave.read_json(autosave.copilot_home() / "permissions-config.json")
         self.assertEqual(set(permissions["locations"]), {str(self.repo)})
+        setup_mcp.remove_setup(setup_mcp.plan_removal(
+            worktree, Path(setup_mcp.__file__).resolve().parents[1]
+        ))
+        permissions = autosave.read_json(autosave.copilot_home() / "permissions-config.json")
+        self.assertEqual(permissions["locations"][str(self.repo)]["tool_approvals"], [])
 
     def test_existing_hook_conflict_prevents_all_writes(self):
         hook = self.repo / ".github/hooks/session-info.json"
@@ -113,6 +118,88 @@ class SetupMCPTests(unittest.TestCase):
             json.loads(path.read_text())["mcpServers"]["session-summary"]["tools"],
             ["get_checkpoint_context", "save_checkpoint"],
         )
+
+    def test_removal_preserves_unrelated_entries_and_other_project_permissions(self):
+        setup_mcp.setup(self.cwd, approve=True)
+        installation = Path(setup_mcp.__file__).resolve().parents[1]
+        mcp_path = self.repo / ".mcp.json"
+        mcp = autosave.read_json(mcp_path)
+        mcp["mcpServers"]["other"] = {"command": "keep"}
+        autosave.write_json(mcp_path, mcp)
+        hook_path = self.repo / ".github/hooks/session-info.json"
+        hooks = autosave.read_json(hook_path)
+        hooks["hooks"]["agentStop"].append({"type": "command", "command": "keep"})
+        autosave.write_json(hook_path, hooks)
+        config_path = self.repo / ".github/session-info.json"
+        autosave.write_json(config_path, dict(autosave.settings(config_path), custom="keep"))
+        permission_path = autosave.copilot_home() / "permissions-config.json"
+        permissions = autosave.read_json(permission_path)
+        other = {"kind": "mcp", "serverName": "other", "toolName": None}
+        permissions["locations"][str(self.repo)]["tool_approvals"].append(other)
+        permissions["locations"][str(self.repo)]["allowed_directories"] = [str(self.home)]
+        permissions["locations"]["/other"] = {"tool_approvals": [setup_mcp.APPROVAL]}
+        autosave.write_json(permission_path, permissions)
+        changes = setup_mcp.plan_removal(self.cwd, installation)
+        setup_mcp.remove_setup(changes)
+        self.assertEqual(autosave.read_json(mcp_path), {"mcpServers": {"other": {"command": "keep"}}})
+        self.assertEqual(autosave.read_json(hook_path)["hooks"],
+                         {"agentStop": [{"type": "command", "command": "keep"}]})
+        self.assertEqual(autosave.read_json(config_path), {"version": 1, "custom": "keep"})
+        locations = autosave.read_json(permission_path)["locations"]
+        self.assertEqual(locations[str(self.repo)]["tool_approvals"], [other])
+        self.assertEqual(locations[str(self.repo)]["allowed_directories"], [str(self.home)])
+        self.assertEqual(locations["/other"]["tool_approvals"], [setup_mcp.APPROVAL])
+
+    def test_global_removal_requires_flag_and_retains_other_global_servers(self):
+        installation = Path(setup_mcp.__file__).resolve().parents[1]
+        autosave.configure("global", "on", self.cwd)
+        setup_mcp.setup(self.cwd)
+        global_mcp = autosave.copilot_home() / "mcp-config.json"
+        server = autosave.read_json(self.repo / ".mcp.json")["mcpServers"]["session-summary"]
+        autosave.write_json(global_mcp, {"mcpServers": {
+            "session-summary": server, "other": {"command": "keep"},
+        }})
+        setup_mcp.remove_setup(setup_mcp.plan_removal(self.cwd, installation))
+        self.assertTrue(global_mcp.exists())
+        self.assertTrue((autosave.copilot_home() / "hooks/session-info.json").exists())
+        setup_mcp.remove_setup(setup_mcp.plan_removal(self.cwd, installation, True))
+        self.assertEqual(autosave.read_json(global_mcp), {"mcpServers": {"other": {"command": "keep"}}})
+        self.assertFalse((autosave.copilot_home() / "hooks/session-info.json").exists())
+        self.assertFalse((autosave.copilot_home() / "session-info-settings.json").exists())
+        self.assertEqual(setup_mcp.plan_removal(self.cwd, installation, True), [])
+
+    def test_removal_preflights_conflicting_hooks_and_invalid_permissions(self):
+        setup_mcp.setup(self.cwd, approve=True)
+        installation = Path(setup_mcp.__file__).resolve().parents[1]
+        mcp_path = self.repo / ".mcp.json"
+        original = mcp_path.read_bytes()
+        permission_path = autosave.copilot_home() / "permissions-config.json"
+        permissions = permission_path.read_bytes()
+        permission_path.write_text('{"locations":[]}')
+        with self.assertRaisesRegex(ValueError, "locations"):
+            setup_mcp.plan_removal(self.cwd, installation)
+        self.assertEqual(mcp_path.read_bytes(), original)
+        permission_path.write_bytes(permissions)
+        hook = self.repo / ".github/hooks/session-info.json"
+        hook.write_text('{"version":1,"hooks":{"agentStop":[{"command":"unrelated"}]}}')
+        with self.assertRaisesRegex(ValueError, "unrecognized hook"):
+            setup_mcp.plan_removal(self.cwd, installation)
+        self.assertEqual(mcp_path.read_bytes(), original)
+
+    def test_removal_rejects_other_installation_and_symlink_registration(self):
+        setup_mcp.setup(self.cwd)
+        installation = Path(setup_mcp.__file__).resolve().parents[1]
+        mcp_path = self.repo / ".mcp.json"
+        original = mcp_path.read_bytes()
+        with self.assertRaisesRegex(ValueError, "unrecognized MCP"):
+            setup_mcp.plan_removal(self.cwd, self.home / "different-install")
+        self.assertEqual(mcp_path.read_bytes(), original)
+        target = self.home / "mcp-backup.json"
+        mcp_path.rename(target)
+        mcp_path.symlink_to(target)
+        with self.assertRaisesRegex(ValueError, "symbolic link"):
+            setup_mcp.plan_removal(self.cwd, installation)
+        self.assertEqual(target.read_bytes(), original)
 
 
 if __name__ == "__main__":
