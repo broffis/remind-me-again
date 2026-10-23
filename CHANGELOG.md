@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/broffis/session-summary-skill/compare/v0.2.0...v0.3.0) (2026-10-23)
+
+
+### Features
+
+* rename remind me again ([#14](https://github.com/broffis/session-summary-skill/issues/14)) ([d1e30fe](https://github.com/broffis/session-summary-skill/commit/d1e30fee1f3bfe76f578ac2403840452867dcd43))
+
 ## [0.2.0](https://github.com/broffis/session-summary-skill/compare/v0.1.4...v0.2.0) (2026-10-23)
 
 
