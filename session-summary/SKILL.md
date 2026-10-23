@@ -158,8 +158,18 @@ When an installed `agentStop` hook requests a checkpoint:
 1. In the default shell mode, use the exact working directory, session ID, and token in the hook's
    `autosave.py checkpoint` command. The helper uses the session's stored start
    date. Do not replace that command with `save_summary.py`. In opt-in MCP mode,
-   the hook instead names the `session-summary` server's `save_checkpoint` tool.
-   Use its exact `session_id` and `token`, and pass the summary as `summary`.
+   the hook says only "Session-summary autosave requested". Before composing
+   the summary, call `session-summary/get_checkpoint_context` once using the
+   exact current session UUID from trusted runtime context (for example, the
+   UUID basename of this session's runtime-provided session-state directory).
+   Never use a prior session UUID from saved summaries, choose the newest session,
+   or guess. If the runtime UUID is unavailable, report that and stop.
+   Use the returned exact `session_id` and `token` with `save_checkpoint`,
+   passing the summary as `summary`. Do not refresh the lookup to retry a stale
+   save or reuse a token for a summary composed before the lookup. If a newer
+   user request arrives, stop this checkpoint rather than saving outdated work.
+   Older detailed hook requests may still supply an explicit token; use that
+   exact token without replacing it through lookup.
    The server is bound to the configured working directory; do not substitute
    another project's writer.
 2. Summarize only actual progress since the last successful checkpoint in this
@@ -176,7 +186,8 @@ When an installed `agentStop` hook requests a checkpoint:
    still apply in both modes. Never grant permissions, register a server, or
    change transport settings merely to complete a checkpoint. Do not modify the
    raw summary's checkpoint markers.
-4. Report the saved path briefly after success. If saving fails or permission
+4. After success, respond only: "Session-summary autosave executed."
+   If saving fails or permission
    is denied, say so and stop. Do not retry by requesting another agent turn,
    modify settings, or mark the checkpoint successful manually. A later user
    turn or resume can retry with the outstanding progress included.

@@ -300,7 +300,8 @@ hook invocation and before each save.
 
 Shell checkpoint commands remain the default. For narrower automatic approval,
 the bundled `scripts/checkpoint_mcp.py` provides a local stdio MCP server with
-one tool, `save_checkpoint(session_id, token, summary)`. It uses the existing
+two tools: read-only `get_checkpoint_context(session_id)` and
+`save_checkpoint(session_id, token, summary)`. It uses the existing
 checkpoint writer and has no third-party dependencies or network listener.
 The server accepts no commands, working-directory overrides, or output paths
 from tool calls. It can append summaries and update checkpoint state only for
@@ -333,7 +334,8 @@ keep `.mcp.json`, `.github/hooks/session-info.json`, and
 `.github/session-info.json` local rather than committing them for other users.
 
 **`--approve` is a separate, explicit permission grant.** It saves only
-`session-summary/save_checkpoint` for this repository in Copilot's documented
+`session-summary/get_checkpoint_context` and `session-summary/save_checkpoint`
+for this repository in Copilot's documented
 `permissions-config.json` schema, preserving all other approvals and directory
 grants. Linked worktrees use the main repository's permission scope. It never
 approves Python, shell commands, all MCP tools, or filesystem access generally.
@@ -361,7 +363,7 @@ Alternatively, explicitly register the server through
 python3 -B /absolute/path/to/.copilot/skills/session-summary/scripts/checkpoint_mcp.py --cwd /absolute/path/to/project
 ```
 
-Enable only the `save_checkpoint` tool. Use the same exact working directory as
+Enable only `get_checkpoint_context` and `save_checkpoint`. Use the same exact working directory as
 your Copilot session, including any subdirectory: storage is mapped by working
 directory, not Git root. This server intentionally serves only one such
 directory. Do not reuse its registration in sessions for other projects.
@@ -371,7 +373,8 @@ Registration is separate from approval; use the CLI's supported approval
 controls or explicitly start a session with:
 
 ```sh
-copilot --allow-tool='session-summary(save_checkpoint)'
+copilot --allow-tool='session-summary(get_checkpoint_context)' \
+  --allow-tool='session-summary(save_checkpoint)'
 ```
 
 This permission allows summary writes through that tool, not arbitrary Python
@@ -386,8 +389,15 @@ python3 "$HOME/.copilot/skills/session-summary/scripts/autosave.py" \
 The repository's `.github/session-info.json` stores `checkpoint_transport`;
 missing means `shell`. This setting is repo-scoped, not global. Because the
 writer is bound to one directory, sessions using MCP transport in this repo
-must use that same directory. Hook requests name the MCP tool and include the
-session ID and current token; the agent supplies the summary. If the tool is
+must use that same directory. MCP hook requests display exactly
+"Session-summary autosave requested". The agent uses its trusted runtime
+session UUID for a read-only lookup of that session's pending checkpoint, then
+composes the summary and saves with the returned token. No session is selected
+by recency or by scanning for pending work. A new user turn invalidates the
+returned token; the agent must not refresh it to retry an outdated summary.
+Session IDs and tokens may still appear in MCP tool details; they are omitted
+from the hook message, not hidden from the protocol or treated as authentication.
+If either tool is
 unavailable, denied, or fails, the agent reports it without falling back to
 shell or changing permissions. To restore the default:
 
@@ -421,6 +431,17 @@ Some CLI versions submit the hook's checkpoint request through
 currently pending request preserves its token instead of invalidating itself.
 Modified requests and genuine new user turns still invalidate older tokens;
 stale-token checks are never bypassed during saving.
+
+MCP checkpoint requests contain only the short status message; shell requests
+retain the required command and token. Detailed guidance stays in the skill.
+Existing MCP registrations must enable the lookup tool before using the new
+hook: rerun setup (with Copilot closed if using `--approve`), or add
+`get_checkpoint_context` through `/mcp`. Setup upgrades an otherwise identical
+save-only registration without replacing unrelated definitions. Reload the
+server and skill to load the new tool and instructions.
+After a successful save,
+the agent responds "Session-summary autosave executed." Failures are reported
+instead of displaying that success message.
 
 Each completed interaction can add one model turn, with associated latency and
 usage. Autosave does **not** grant extra permissions; a denied or failed write

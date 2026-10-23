@@ -25,7 +25,8 @@ class SetupMCPTests(unittest.TestCase):
         self.assertEqual(len(paths), 3)
         servers = json.loads(mcp_path.read_text())["mcpServers"]
         self.assertEqual(servers["other"], other)
-        self.assertEqual(servers["session-summary"]["tools"], ["save_checkpoint"])
+        self.assertEqual(servers["session-summary"]["tools"],
+                         ["get_checkpoint_context", "save_checkpoint"])
         self.assertEqual(servers["session-summary"]["args"][-1], str(self.cwd))
         self.assertTrue(autosave.enabled(self.cwd))
         self.assertFalse(autosave.enabled(self.cwd, "autoread"))
@@ -43,7 +44,8 @@ class SetupMCPTests(unittest.TestCase):
         setup_mcp.setup(self.cwd, approve=True)
         setup_mcp.setup(self.cwd, approve=True)
         locations = json.loads(permission_path.read_text())["locations"]
-        self.assertEqual(locations[str(self.repo)]["tool_approvals"], [other, setup_mcp.APPROVAL])
+        self.assertEqual(locations[str(self.repo)]["tool_approvals"],
+                         [other, setup_mcp.APPROVAL, setup_mcp.CONTEXT_APPROVAL])
         self.assertEqual(locations[str(self.repo)]["allowed_directories"], [str(self.home)])
         self.assertEqual(locations["/other/project"], {"tool_approvals": [{"kind": "read"}]})
 
@@ -99,6 +101,18 @@ class SetupMCPTests(unittest.TestCase):
             setup_mcp.setup(self.cwd, approve=True)
         self.assertFalse((self.repo / ".mcp.json").exists())
         self.assertEqual(hook.read_text(), '{"unrelated":true}')
+
+    def test_setup_upgrades_identical_save_only_registration(self):
+        setup_mcp.setup(self.cwd)
+        path = self.repo / ".mcp.json"
+        config = json.loads(path.read_text())
+        config["mcpServers"]["session-summary"]["tools"] = ["save_checkpoint"]
+        path.write_text(json.dumps(config))
+        setup_mcp.setup(self.cwd)
+        self.assertEqual(
+            json.loads(path.read_text())["mcpServers"]["session-summary"]["tools"],
+            ["get_checkpoint_context", "save_checkpoint"],
+        )
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-from autosave import checkpoint, repository
+from autosave import checkpoint, checkpoint_context, repository
 from storage import project_directory
 
 
@@ -28,12 +28,37 @@ TOOL = {
         "additionalProperties": False,
     },
 }
+CONTEXT_TOOL = {
+    "name": "get_checkpoint_context",
+    "description": (
+        "Read the pending checkpoint for the exact runtime-provided session UUID "
+        "in this configured project. Never guess a session or select the newest. "
+        "Call once before composing the summary; do not refresh after a stale save."
+    ),
+    "inputSchema": {
+        "type": "object",
+        "properties": {"session_id": {"type": "string", "format": "uuid"}},
+        "required": ["session_id"],
+        "additionalProperties": False,
+    },
+    "annotations": {"readOnlyHint": True},
+}
 
 
 def call_tool(cwd, params):
-    if not isinstance(params, dict) or params.get("name") != TOOL["name"]:
+    if not isinstance(params, dict):
         raise ValueError("Unknown checkpoint tool.")
     arguments = params.get("arguments")
+    if params.get("name") == CONTEXT_TOOL["name"]:
+        if (
+            not isinstance(arguments, dict) or set(arguments) != {"session_id"}
+            or not isinstance(arguments["session_id"], str)
+        ):
+            raise ValueError("Expected only string session_id.")
+        context = checkpoint_context(cwd, arguments["session_id"])
+        return {"content": [{"type": "text", "text": json.dumps(context)}]}
+    if params.get("name") != TOOL["name"]:
+        raise ValueError("Unknown checkpoint tool.")
     if (
         not isinstance(arguments, dict)
         or set(arguments) != {"session_id", "token", "summary"}
@@ -76,7 +101,7 @@ def respond(message, cwd, initialized):
     elif not initialized:
         response["error"] = {"code": -32000, "message": "Initialize the server first."}
     elif method == "tools/list":
-        response["result"] = {"tools": [TOOL]}
+        response["result"] = {"tools": [CONTEXT_TOOL, TOOL]}
     elif method == "tools/call":
         try:
             response["result"] = call_tool(cwd, params)
