@@ -29,7 +29,58 @@ No new material means no write.
 
 ## Install
 
-Copy `session-summary` into `~/.copilot/skills/`, or symlink it for development:
+Requires **Python 3.9+ on macOS or Linux**, and Copilot CLI.
+No pip packages are needed. Windows is not currently supported.
+
+1. Download the ZIP from [GitHub Releases](https://github.com/broffis/session-summary-skill/releases)
+   and unzip it. Releases will appear there once published.
+2. Open a terminal in the extracted `session-summary-skill` folder and run:
+
+   ```sh
+   python3 install.py
+   ```
+
+3. In Copilot CLI, run `/skills reload`, then `/skills info session-summary`.
+
+This copies the skill and all Python helpers into `~/.copilot/skills/session-summary`.
+You can delete the downloaded/extracted files afterward. Autosave and autoread
+remain off unless previously enabled; installation never changes those settings.
+Do not use `copilot skill add <SKILL.md URL>` for this skill: that command installs
+only the Markdown file and would omit the required Python helpers.
+
+Until the first release is published, download the repository's source ZIP
+from [GitHub](https://github.com/broffis/session-summary-skill) (Code > Download ZIP),
+or clone it, and run the same `python3 install.py` command in the repository root.
+
+### Update or uninstall
+
+From a freshly downloaded release folder:
+
+```sh
+python3 install.py --update
+```
+
+The installer refuses accidental overwrites, locally modified installations,
+unknown existing folders, and development symlinks. Back up local modifications
+and resolve conflicts manually instead of forcing an update. Updating preserves
+the installed path used by hooks and does not change opt-in settings.
+
+Before uninstalling, disable automation and remove this skill's
+`session-info.json` hook registrations from every configured repo and the global
+hooks directory. Disabling settings alone leaves hook commands registered.
+Then, from an extracted release folder, run:
+
+```sh
+python3 install.py --uninstall
+```
+
+Only the unmodified managed skill is removed. Saved summaries and settings are
+preserved. `--skills-dir <directory>` selects a different installation parent
+for either operation; default is `~/.copilot/skills`.
+
+### Development installation
+
+For a live development checkout, symlink the skill instead:
 
 ```sh
 mkdir -p "$HOME/.copilot/skills"
@@ -43,7 +94,7 @@ Ask: "Use the session-summary skill to save this session's progress."
 For rollups, ask: "Use the session-summary skill to roll up new saved progress."
 For retrieval, ask: "Use the session-summary skill to read our saved progress."
 
-This workspace does not install the skill automatically. Skills run when
+Downloading this workspace does not install the skill automatically. Skills run when
 invoked or selected by the agent; a skill alone is not an automatic exit hook.
 Optional hooks provide automatic checkpoints as described below.
 
@@ -282,6 +333,24 @@ the raw entry's checkpoint marker makes retrying that append safe.
 Rollup `sources` records consumed byte offsets and hashes. `prepare` returns
 prospective checkpoints without persisting them; only `save` commits them with
 the synthesis. Retrieval reuses that preparation logic but never advances it.
+
+## Building a downloadable release
+
+From the repository root, choose the intended release version:
+
+```sh
+python3 build_release.py --version v0.1.0
+```
+
+This creates `dist/session-summary-skill-v0.1.0.zip` and its `.zip.sha256`
+checksum. The ZIP contains only the skill, required helpers, installer, README,
+and license; it excludes tests, local summaries, caches, and Git metadata.
+Existing artifacts are not overwritten.
+
+Publish those two files as assets on a GitHub Release for
+`broffis/session-summary-skill` after reviewing and merging the code.
+Building locally does not push, tag, or publish anything. Users can verify a
+download on macOS/Linux with `shasum -a 256 -c <archive>.zip.sha256`.
 
 ## Requirements and checks
 
