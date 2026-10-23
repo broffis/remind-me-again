@@ -137,6 +137,43 @@ class AutosaveTests(unittest.TestCase):
         self.assertIn("First progress.", second.read_text())
         self.assertIn("More progress.", second.read_text())
 
+    def test_checkpoint_continuation_prompt_preserves_pending_token(self):
+        self.enable()
+        self.start()
+        self.prompt()
+        result = self.stop()
+        before = autosave.read_state(self.cwd, SESSION)
+        self.prompt(result["reason"], START + 2)
+        self.prompt(result["reason"], START + 2)
+        self.assertEqual(autosave.read_state(self.cwd, SESSION), before)
+        destination = autosave.checkpoint(
+            self.cwd, SESSION, before["turn"], "Live continuation progress."
+        )
+        self.assertIn("Live continuation progress.", destination.read_text())
+        self.assertEqual(self.event("agentStop", stop_hook_active=True), {})
+
+    def test_modified_continuation_prompt_still_invalidates_pending_token(self):
+        self.enable()
+        self.start()
+        self.prompt()
+        result = self.stop()
+        token = autosave.read_state(self.cwd, SESSION)["turn"]
+        self.prompt(result["reason"] + "\nA new user instruction.", START + 2)
+        with self.assertRaisesRegex(ValueError, "stale"):
+            autosave.checkpoint(self.cwd, SESSION, token, "Old progress.")
+        self.assertIsNone(autosave.read_state(self.cwd, SESSION)["requested"])
+
+    def test_old_continuation_cannot_restore_token_after_new_user_turn(self):
+        self.enable()
+        self.start()
+        self.prompt()
+        result = self.stop()
+        token = autosave.read_state(self.cwd, SESSION)["turn"]
+        self.prompt("A genuinely newer request.", START + 2)
+        self.prompt(result["reason"], START + 3)
+        with self.assertRaisesRegex(ValueError, "stale"):
+            autosave.checkpoint(self.cwd, SESSION, token, "Old progress.")
+
     def test_failed_save_remains_unsaved_and_exit_reports_it(self):
         self.enable()
         self.start()

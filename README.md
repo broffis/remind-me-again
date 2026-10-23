@@ -301,7 +301,7 @@ hook invocation and before each save.
 | Event | Action |
 | --- | --- |
 | `sessionStart` | For autosave, records the start date. For autoread, injects saved context. |
-| `userPromptSubmitted` | Tracks a new user turn using a hash, without storing the prompt. |
+| `userPromptSubmitted` | Tracks a new user turn using a hash, without storing the prompt; ignores the exact pending checkpoint continuation. |
 | `agentStop` | Requests at most one extra agent turn to save a checkpoint, unless already saved. |
 | `sessionEnd` | Reports outstanding unsaved progress; does not invoke a model or create an exit summary. |
 
@@ -311,6 +311,12 @@ Hook-requested continuations are guarded against recursion. State lives in the
 project's `.autosave/` folder beside `raw summaries` and `rollup`; it contains
 dates and hashes, not a second copy of the conversation. Raw summaries are
 append-only and rollups stay manual.
+
+Some CLI versions submit the hook's checkpoint request through
+`userPromptSubmitted` before the agent handles it. An exact match to the
+currently pending request preserves its token instead of invalidating itself.
+Modified requests and genuine new user turns still invalidate older tokens;
+stale-token checks are never bypassed during saving.
 
 Each completed interaction can add one model turn, with associated latency and
 usage. Autosave does **not** grant extra permissions; a denied or failed write
