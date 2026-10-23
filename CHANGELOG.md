@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/broffis/session-summary-skill/compare/v0.1.4...v0.2.0) (2026-10-23)
+
+
+### Features
+
+* one summary per session ([#12](https://github.com/broffis/session-summary-skill/issues/12)) ([d7c65b5](https://github.com/broffis/session-summary-skill/commit/d7c65b5655cfbe9cee36eddba644a22bd4fa01df))
+
 ## [0.1.4](https://github.com/broffis/session-summary-skill/compare/v0.1.3...v0.1.4) (2026-10-23)
 
 
