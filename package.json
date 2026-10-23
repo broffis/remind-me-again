@@ -1,0 +1,32 @@
+{
+  "name": "@broffis/session-summary-skill",
+  "version": "0.1.0",
+  "description": "Install a Copilot skill for local session summaries, rollups, and opt-in context retrieval.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/broffis/session-summary-skill.git"
+  },
+  "bin": {
+    "session-summary-skill": "bin/session-summary-skill.cjs"
+  },
+  "files": [
+    "bin/session-summary-skill.cjs",
+    "install.py",
+    "session-summary/SKILL.md",
+    "session-summary/scripts/*.py"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "node --test tests/npm-installer.test.cjs"
+  }
+}
