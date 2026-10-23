@@ -317,6 +317,14 @@ def start_autosave_session(payload):
 
 
 def record_user_turn(payload, state, path):
+    if (
+        state["requested"] is not None
+        and state["requested"] == state["turn"]
+        and payload["prompt"] == request(
+            payload["cwd"], payload["sessionId"], state
+        )["reason"]
+    ):
+        return {}
     token = prompt_token(payload)
     if token != state["turn"]:
         state["turn"] = token
