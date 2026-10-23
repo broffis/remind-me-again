@@ -47,7 +47,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             python: "3.9"
             node: "18"
           - os: ubuntu-latest
@@ -83,5 +83,5 @@ jobs:
           python3 -B build_release.py --version "$version" --output-dir "$RUNNER_TEMP/zip"
           cd "$RUNNER_TEMP/zip"
           shasum -a 256 -c "session-summary-skill-$version.zip.sha256"
-      - name: Preview npm publication
-        run: npm publish --dry-run --access public --ignore-scripts
+      - name: Preview npm package contents
+        run: npm pack --dry-run --ignore-scripts

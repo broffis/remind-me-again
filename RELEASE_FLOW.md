@@ -5,7 +5,8 @@
 `verify.yml` checks pull requests, can be run manually, and is reused by the
 release workflow before any release operation. It runs Python tests, npm tests
 (including packed-installer checks), ZIP creation/checksum validation, and an
-npm publication dry run. The matrix covers Python 3.9 / Node 18 on Linux and
+npm package-content dry run (without registry publication checks). The matrix
+covers Python 3.9 / Node 18 on Ubuntu 22.04 and
 Python 3.14 / Node 24 on Linux and macOS. PR titles must use Conventional Commits.
 There are no runtime dependency installs or publishing credentials in PR jobs.
 
