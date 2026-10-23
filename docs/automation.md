@@ -87,11 +87,11 @@ the repo opt-in but keep separate storage.
 | `agentStop` | Requests at most one extra agent turn to save a checkpoint, unless already saved. |
 | `sessionEnd` | Reports outstanding unsaved progress; no model call or exit summary. |
 
-- Global and repo hooks can coexist. Locks, turn tokens, and append markers
+- Global and repo hooks can coexist. Locks, turn tokens, and checkpoint markers
   deduplicate calls and retries; continuations are guarded against recursion.
 - State lives in `.autosave/` beside `raw summaries` and `rollup`. It holds
-  dates and hashes, not conversation text. Raw summaries are append-only and
-  rollups stay manual.
+  dates and hashes, not conversation text. Each checkpoint replaces the
+  session's raw block with a cumulative summary; rollups stay manual.
 - Some CLI versions route the checkpoint request through `userPromptSubmitted`.
   An exact match to the pending request keeps its token; modified requests and
   genuine new turns invalidate older tokens, and saves always check for staleness.
@@ -102,8 +102,8 @@ Costs and limits:
 
 - Each completed interaction can add one model turn, with latency and usage.
 - Autosave grants no extra permissions. A denied or failed write is reported
-  and never marked saved; it retries on a later turn or resume, with all
-  progress since the last successful checkpoint.
+  and never marked saved; it retries on a later turn or resume with a cumulative
+  summary of the whole session so far.
 - Forced termination or an interrupted turn can lose unsaved progress. No
   background summarizer or third-party service runs.
 - Deleting `.autosave` state removes deduplication history; it is not an uninstall.

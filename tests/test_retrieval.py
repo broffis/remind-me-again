@@ -151,7 +151,7 @@ class RetrievalTests(unittest.TestCase):
         raw = self.raw("Original.")
         rollup.save(rollup.prepare(self.cwd, "2026-10-22"), "Synthesis.")
         raw.write_text("Edited raw history.")
-        with self.assertRaisesRegex(ValueError, "changed"):
+        with self.assertRaisesRegex(ValueError, "session ID"):
             retrieval.retrieve(self.cwd)
 
     def test_autoread_is_separate_and_repo_override_wins(self):

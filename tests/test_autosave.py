@@ -136,8 +136,9 @@ class AutosaveTests(unittest.TestCase):
         second = autosave.checkpoint(self.cwd, SESSION, state["turn"], "More progress.")
         self.assertEqual(first, second)
         self.assertEqual(second.name, "2026-10-23.md")
-        self.assertIn("First progress.", second.read_text())
+        self.assertNotIn("First progress.", second.read_text())
         self.assertIn("More progress.", second.read_text())
+        self.assertEqual(second.read_text().count(f"## Session {SESSION}"), 1)
 
     def test_checkpoint_continuation_prompt_preserves_pending_token(self):
         self.enable()

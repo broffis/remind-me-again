@@ -13,7 +13,7 @@ PROTOCOLS = ("2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25")
 TOOL = {
     "name": "save_checkpoint",
     "description": (
-        "Append a session progress checkpoint for the server's configured project. "
+        "Save a cumulative session summary, replacing the session's previous one, for the server's configured project. "
         "Requires autosave to be enabled and an exact current hook-issued token. "
         "Does not execute commands, enable automation, or accept output paths."
     ),

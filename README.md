@@ -12,15 +12,16 @@ The `session-summary` skill saves and retrieves session summaries locally:
 
 Project paths are relative to your home directory.
 
-- **Raw summaries**: each save appends an entry (with session UUID and
-  `copilot --resume=<sessionId>`) to the session start date's file. Existing entries are never changed.
-- **Rollups**: summarize only raw content not yet covered by earlier rollups,
-  named by the local date of creation. Repeating one on the same day refreshes it;
+- **Raw summaries**: each session has one block (with its UUID and
+  `copilot --resume=<sessionId>`) in the session start date's file. Saving again
+  replaces that session's block with a new cumulative summary; other sessions are untouched.
+- **Rollups**: summarize only raw session blocks not yet covered by earlier rollups
+  (a replaced block counts as new again), named by the local date of creation. Repeating one on the same day refreshes it;
   earlier days' rollups stay unchanged. Each lists its related session IDs, dates, and resume commands.
 - **Division of work**: the agent writes the synthesis; the Python helper selects
-  new input, generates session references, and tracks consumed bytes and hashes
-  in hidden Markdown metadata. Don't remove that metadata or edit consumed raw
-  content; changes cause an explicit error instead of lost history.
+  new input, generates session references, and tracks which session blocks
+  were consumed by hash in hidden Markdown metadata. Don't remove that metadata
+  or edit raw files by hand; files without session headers cause an explicit error.
 
 ## Quick start
 

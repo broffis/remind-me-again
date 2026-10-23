@@ -2,6 +2,16 @@
 
 from datetime import date
 from pathlib import Path
+import re
+
+
+UUID_PATTERN = (
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+)
+SESSION_HEADER = re.compile(rf"^## Session ({UUID_PATTERN})$", re.MULTILINE)
+BLOCK_SEPARATOR = "\n\n---\n\n"
+# A separator only counts when the next block starts with a session header.
+_BLOCK_SPLIT = re.compile(rf"\n\n---\n\n(?=## Session {UUID_PATTERN}\n)")
 
 
 def project_directory(cwd):
@@ -26,3 +36,18 @@ def validate_date(value):
     if date.fromisoformat(value).isoformat() != value:
         raise ValueError("Date must use YYYY-MM-DD.")
     return value
+
+
+def split_blocks(text):
+    """Split a raw summary file into per-session blocks, preserving their bytes."""
+    if not text:
+        return []
+    blocks = _BLOCK_SPLIT.split(text)
+    for block in blocks:
+        if not re.match(rf"## Session {UUID_PATTERN}\n", block):
+            raise ValueError("Raw summary content has no session ID.")
+    return blocks
+
+
+def block_session_id(block):
+    return SESSION_HEADER.match(block).group(1).lower()
