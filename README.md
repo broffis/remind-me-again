@@ -52,7 +52,40 @@ Until the first release is published, download the repository's source ZIP
 from [GitHub](https://github.com/broffis/session-summary-skill) (Code > Download ZIP),
 or clone it, and run the same `python3 install.py` command in the repository root.
 
-### Update or uninstall
+### Alternative: install with npm/npx
+
+The npm package is prepared but **not published yet**. Once published, users
+with Node.js 18+ and npm can install without manually downloading a ZIP:
+
+```sh
+npx @broffis/session-summary-skill install
+```
+
+This is an alternative entry point to the **same Python installer**, not a
+different installation format. Python 3.9+ on macOS or Linux is still required.
+It copies the bundled skill and every helper into `~/.copilot/skills/session-summary`;
+no repository clone or permanent npm installation is needed. Afterward, run
+`/skills reload` and `/skills info session-summary` inside Copilot CLI.
+Autosave and autoread settings are not changed.
+
+Update or uninstall with:
+
+```sh
+npx @broffis/session-summary-skill@latest update
+npx @broffis/session-summary-skill@latest uninstall
+```
+
+The same safety rules below apply, including disabling/removing hook
+registrations **before uninstalling**. An install made from a ZIP can be updated
+or uninstalled through npx, and vice versa. Pass `--skills-dir <directory>` to
+any action for a custom installation parent.
+
+To select a reviewed release explicitly, use
+`npx @broffis/session-summary-skill@0.1.0 install` once that version is published.
+Downloading an npm package alone does not install the skill or enable hooks;
+the explicit `install`, `update`, or `uninstall` action performs the operation.
+
+### ZIP installation: update or uninstall
 
 From a freshly downloaded release folder:
 
@@ -351,6 +384,31 @@ Publish those two files as assets on a GitHub Release for
 `broffis/session-summary-skill` after reviewing and merging the code.
 Building locally does not push, tag, or publish anything. Users can verify a
 download on macOS/Linux with `shasum -a 256 -c <archive>.zip.sha256`.
+
+### Building the npm package
+
+The npm entry point in `bin/session-summary-skill.cjs` calls `install.py` with
+argument arrays (no shell interpolation). The package has no npm dependencies
+or install lifecycle scripts. `package.json` explicitly includes the skill
+and Python helpers while excluding tests and local artifacts.
+
+```sh
+npm test
+npm pack
+```
+
+`npm pack` creates `broffis-session-summary-skill-0.1.0.tgz` locally.
+To try it without publishing, use an isolated installation directory:
+
+```sh
+npm exec --package=./broffis-session-summary-skill-0.1.0.tgz -- \
+  session-summary-skill install --skills-dir /path/to/temporary-skills
+```
+
+Publishing is a separate, explicit action requiring npm authorization for the
+`@broffis` scope. Neither building nor running tests publishes the package.
+The package version is maintained in `package.json`; coordinate it with the
+intended GitHub Release version.
 
 ## Requirements and checks
 
