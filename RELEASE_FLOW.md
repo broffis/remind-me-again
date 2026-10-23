@@ -30,7 +30,7 @@ the initial implementation merge, so it does not republish that version.
 
 ## One-time administrator setup
 
-1. Create a GitHub App installed on `broffis/session-summary-skill` with repository
+1. Create a GitHub App installed on `broffis/remind-me-again` with repository
    **Contents**, **Pull requests**, and **Issues** read/write permissions. Add its
    app ID and private key as repository Actions secrets named `APP_ID` and
    `APP_PRIVATE_KEY`. App-created release PRs trigger ordinary PR verification;
@@ -44,7 +44,7 @@ the initial implementation merge, so it does not republish that version.
    404 when this automation was prepared; trusted publishing cannot be configured
    until the package exists.
 4. In that npm package's **Settings > Trusted publishing**, add GitHub Actions:
-   owner **`broffis`**, repository **`session-summary-skill`**, workflow filename
+   owner **`broffis`**, repository **`remind-me-again`**, workflow filename
    **`release.yml`**, environment **`npm`**. Permit direct **`npm publish`**
    (not just staged publishing). No `NPM_TOKEN` secret is required.
 

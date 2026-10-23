@@ -1,6 +1,6 @@
-# Session info skill
+# remind-me-again
 
-The `session-summary` skill saves and retrieves session summaries locally:
+The `remind-me-again` skill saves and retrieves session summaries locally:
 
 ```text
 ~/.copilot/session-info/personal/recipe-app/
@@ -26,22 +26,22 @@ Project paths are relative to your home directory.
 ## Quick start
 
 Requires **Python 3.9+ on macOS or Linux** and Copilot CLI. Download the ZIP
-from [GitHub Releases](https://github.com/broffis/session-summary-skill/releases),
+from [GitHub Releases](https://github.com/broffis/remind-me-again/releases),
 unzip it, and run:
 
 ```sh
 python3 install.py
 ```
 
-Then in Copilot CLI run `/skills reload` and `/skills info session-summary`.
+Then in Copilot CLI run `/skills reload` and `/skills info remind-me-again`.
 Autosave and autoread stay off unless you enable them.
 
 | Prompt | Result |
 | --- | --- |
-| `Use the /session-summary skill: save` | Save current session progress. |
-| `Use the /session-summary skill: read` | Retrieve the latest rollup plus uncovered raw progress. |
-| `Use the /session-summary skill: review --all` | Review every rollup plus uncovered raw progress. |
-| `Use the /session-summary skill: rollup` | Create or refresh today's rollup. |
+| `Use the /remind-me-again skill: save` | Save current session progress. |
+| `Use the /remind-me-again skill: read` | Retrieve the latest rollup plus uncovered raw progress. |
+| `Use the /remind-me-again skill: review --all` | Review every rollup plus uncovered raw progress. |
+| `Use the /remind-me-again skill: rollup` | Create or refresh today's rollup. |
 
 ## Documentation
 

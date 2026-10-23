@@ -1,20 +1,20 @@
 {
-  "name": "@broffis/session-summary-skill",
+  "name": "remind-me-again",
   "version": "0.2.0",
   "description": "Install a Copilot skill for local session summaries, rollups, and opt-in context retrieval.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/broffis/session-summary-skill.git"
+    "url": "git+https://github.com/broffis/remind-me-again.git"
   },
   "bin": {
-    "session-summary-skill": "bin/session-summary-skill.cjs"
+    "remind-me-again": "bin/remind-me-again.cjs"
   },
   "files": [
-    "bin/session-summary-skill.cjs",
+    "bin/remind-me-again.cjs",
     "install.py",
-    "session-summary/SKILL.md",
-    "session-summary/scripts/*.py"
+    "remind-me-again/SKILL.md",
+    "remind-me-again/scripts/*.py"
   ],
   "engines": {
     "node": ">=18"

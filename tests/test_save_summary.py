@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 SCRIPT = (
     Path(__file__).resolve().parents[1]
-    / "session-summary" / "scripts" / "save_summary.py"
+    / "remind-me-again" / "scripts" / "save_summary.py"
 )
 SPEC = importlib.util.spec_from_file_location("save_summary", SCRIPT)
 sys.path.insert(0, str(SCRIPT.parent))

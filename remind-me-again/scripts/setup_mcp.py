@@ -12,7 +12,7 @@ from autosave import (
 from storage import project_directory
 
 
-SERVER = "session-summary"
+SERVER = "remind-me-again"
 APPROVAL = {"kind": "mcp", "serverName": SERVER, "toolName": "save_checkpoint"}
 CONTEXT_APPROVAL = {
     "kind": "mcp", "serverName": SERVER, "toolName": "get_checkpoint_context"
@@ -270,7 +270,7 @@ def main():
         paths = setup(args.cwd, args.approve, args.dry_run)
         print(("Would update" if args.dry_run else "Updated") + ":\n" + "\n".join(paths))
         if args.approve:
-            print("Approval scope: this repository's session-summary checkpoint lookup/save only.")
+            print("Approval scope: this repository's remind-me-again checkpoint lookup/save only.")
         else:
             print("No tool approval granted. Approve save_checkpoint in Copilot when prompted.")
         print("Restart Copilot from the configured working directory to load the setup.")

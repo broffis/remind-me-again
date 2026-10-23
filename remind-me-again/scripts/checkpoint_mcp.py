@@ -93,7 +93,7 @@ def respond(message, cwd, initialized):
             response["result"] = {
                 "protocolVersion": version if version in PROTOCOLS else PROTOCOLS[-1],
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "session-summary", "version": "1.0.0"},
+                "serverInfo": {"name": "remind-me-again", "version": "1.0.0"},
             }
             initialized = True
     elif method == "ping":

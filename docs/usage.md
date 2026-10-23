@@ -8,11 +8,11 @@ After installing and running `/skills reload`:
 
 | Prompt | Result |
 | --- | --- |
-| `Use the /session-summary skill: save` | Save current session progress with its ID and resume command. |
-| `Use the /session-summary skill: read` | Retrieve the latest rollup plus uncovered raw progress. |
-| `Use the /session-summary skill: review --all` | Retrieve every rollup plus uncovered raw progress and synthesize a project-wide review. |
-| `Use the /session-summary skill: rollup` | Create or refresh today's incremental rollup. |
-| `Use the /session-summary skill: configure --feature autoread --scope repo --mode on` | Enable autoread for the current repository. |
+| `Use the /remind-me-again skill: save` | Save current session progress with its ID and resume command. |
+| `Use the /remind-me-again skill: read` | Retrieve the latest rollup plus uncovered raw progress. |
+| `Use the /remind-me-again skill: review --all` | Retrieve every rollup plus uncovered raw progress and synthesize a project-wide review. |
+| `Use the /remind-me-again skill: rollup` | Create or refresh today's incremental rollup. |
+| `Use the /remind-me-again skill: configure --feature autoread --scope repo --mode on` | Enable autoread for the current repository. |
 
 For `configure`, choose `--feature autosave|autoread`, `--scope repo|global`,
 and `--mode on|off|inherit`. Each feature defaults to off.
@@ -25,7 +25,7 @@ review synthesis need the agent; the Python helpers only handle files.
 No opt-in is needed:
 
 ```sh
-python3 "$HOME/.copilot/skills/session-summary/scripts/retrieval.py" \
+python3 "$HOME/.copilot/skills/remind-me-again/scripts/retrieval.py" \
   --cwd "$HOME/personal/recipe-app"
 ```
 
@@ -47,11 +47,11 @@ cap with `--max-chars 48000` (minimum 1,000) or read the listed source files.
 `--all` retrieves **every rollup chronologically, then uncovered raw progress**:
 
 ```sh
-python3 "$HOME/.copilot/skills/session-summary/scripts/retrieval.py" \
+python3 "$HOME/.copilot/skills/remind-me-again/scripts/retrieval.py" \
   --cwd "$HOME/personal/recipe-app" --all
 ```
 
-Or ask: "Use the session-summary skill to review all saved project summaries."
+Or ask: "Use the remind-me-again skill to review all saved project summaries."
 The agent can synthesize the history, separating past decisions from current
 status. No files or rollup checkpoints change.
 

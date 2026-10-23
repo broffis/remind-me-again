@@ -90,6 +90,6 @@ jobs:
         shell: bash
         run: |
           gh release upload "$RELEASE_TAG" \
-            "$RUNNER_TEMP/release/session-summary-skill-$RELEASE_TAG.zip" \
-            "$RUNNER_TEMP/release/session-summary-skill-$RELEASE_TAG.zip.sha256" \
+            "$RUNNER_TEMP/release/remind-me-again-$RELEASE_TAG.zip" \
+            "$RUNNER_TEMP/release/remind-me-again-$RELEASE_TAG.zip.sha256" \
             --clobber

@@ -7,7 +7,7 @@ transport, see [mcp-setup.md](mcp-setup.md).
 All commands use the installed helper:
 
 ```sh
-AUTOSAVE="$HOME/.copilot/skills/session-summary/scripts/autosave.py"
+AUTOSAVE="$HOME/.copilot/skills/remind-me-again/scripts/autosave.py"
 ```
 
 ## Settings and precedence

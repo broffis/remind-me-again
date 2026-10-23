@@ -6,7 +6,7 @@ const path = require('node:path');
 const { test } = require('node:test');
 
 const root = path.resolve(__dirname, '..');
-const cli = path.join(root, 'bin/session-summary-skill.cjs');
+const cli = path.join(root, 'bin/remind-me-again.cjs');
 
 function run(args, options = {}) {
   return spawnSync(process.execPath, [cli, ...args], {
@@ -36,12 +36,12 @@ test('missing Python produces an actionable error', () => {
 });
 
 test('install, explicit update, and uninstall share the Python installer', () => {
-  const temporary = mkdtempSync(path.join(tmpdir(), 'session-summary-npm-'));
+  const temporary = mkdtempSync(path.join(tmpdir(), 'remind-me-again-npm-'));
   try {
     const skills = path.join(temporary, 'skills with spaces');
     const args = ['--skills-dir', skills];
     assert.equal(run(['install', ...args]).status, 0);
-    const destination = path.join(skills, 'session-summary');
+    const destination = path.join(skills, 'remind-me-again');
     assert.ok(existsSync(path.join(destination, 'scripts/autosave.py')));
     const duplicate = run(['install', ...args]);
     assert.equal(duplicate.status, 1);
@@ -55,7 +55,7 @@ test('install, explicit update, and uninstall share the Python installer', () =>
 });
 
 test('npm tarball contains every helper and can install outside the checkout', () => {
-  const temporary = mkdtempSync(path.join(tmpdir(), 'session-summary-pack-'));
+  const temporary = mkdtempSync(path.join(tmpdir(), 'remind-me-again-pack-'));
   try {
     const packed = spawnSync('npm', [
       'pack', '--json', '--ignore-scripts', '--pack-destination', temporary,
@@ -64,11 +64,11 @@ test('npm tarball contains every helper and can install outside the checkout', (
     const [manifest] = JSON.parse(packed.stdout);
     const files = manifest.files.map((file) => file.path);
     for (const filename of [
-      'install.py', 'bin/session-summary-skill.cjs', 'session-summary/SKILL.md',
-      'session-summary/scripts/storage.py', 'session-summary/scripts/save_summary.py',
-      'session-summary/scripts/rollup.py', 'session-summary/scripts/retrieval.py',
-      'session-summary/scripts/autosave.py', 'LICENSE', 'README.md',
-      'session-summary/scripts/checkpoint_mcp.py', 'session-summary/scripts/setup_mcp.py',
+      'install.py', 'bin/remind-me-again.cjs', 'remind-me-again/SKILL.md',
+      'remind-me-again/scripts/storage.py', 'remind-me-again/scripts/save_summary.py',
+      'remind-me-again/scripts/rollup.py', 'remind-me-again/scripts/retrieval.py',
+      'remind-me-again/scripts/autosave.py', 'LICENSE', 'README.md',
+      'remind-me-again/scripts/checkpoint_mcp.py', 'remind-me-again/scripts/setup_mcp.py',
     ]) {
       assert.ok(files.includes(filename), `Missing ${filename}`);
     }
@@ -79,13 +79,13 @@ test('npm tarball contains every helper and can install outside the checkout', (
     assert.equal(extracted.status, 0, extracted.stderr);
     const skills = path.join(temporary, 'installed');
     const installed = spawnSync(process.execPath, [
-      path.join(temporary, 'package/bin/session-summary-skill.cjs'),
+      path.join(temporary, 'package/bin/remind-me-again.cjs'),
       'install', '--skills-dir', skills,
     ], { cwd: temporary, encoding: 'utf8' });
     assert.equal(installed.status, 0, installed.stderr);
     assert.equal(
-      readFileSync(path.join(skills, 'session-summary/SKILL.md'), 'utf8'),
-      readFileSync(path.join(root, 'session-summary/SKILL.md'), 'utf8'),
+      readFileSync(path.join(skills, 'remind-me-again/SKILL.md'), 'utf8'),
+      readFileSync(path.join(root, 'remind-me-again/SKILL.md'), 'utf8'),
     );
   } finally {
     rmSync(temporary, { recursive: true });
@@ -93,7 +93,7 @@ test('npm tarball contains every helper and can install outside the checkout', (
 });
 
 test('setup-mcp uses the installed helper and supports a no-write preview', () => {
-  const temporary = mkdtempSync(path.join(tmpdir(), 'session-summary-setup-'));
+  const temporary = mkdtempSync(path.join(tmpdir(), 'remind-me-again-setup-'));
   try {
     const skills = path.join(temporary, 'skills');
     assert.equal(run(['setup-mcp', '--skills-dir', skills]).status, 1);
@@ -112,7 +112,7 @@ test('setup-mcp uses the installed helper and supports a no-write preview', () =
 });
 
 test('uninstall accepts cleanup preview options and does not delete the skill', () => {
-  const temporary = mkdtempSync(path.join(tmpdir(), 'session-summary-uninstall-'));
+  const temporary = mkdtempSync(path.join(tmpdir(), 'remind-me-again-uninstall-'));
   try {
     const skills = path.join(temporary, 'skills');
     assert.equal(run(['install', '--skills-dir', skills]).status, 0);
@@ -121,7 +121,7 @@ test('uninstall accepts cleanup preview options and does not delete the skill', 
     ], { env: { ...process.env, HOME: temporary, COPILOT_HOME: path.join(temporary, '.copilot') } });
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /Would remove\/update/);
-    assert.ok(existsSync(path.join(skills, 'session-summary/SKILL.md')));
+    assert.ok(existsSync(path.join(skills, 'remind-me-again/SKILL.md')));
   } finally {
     rmSync(temporary, { recursive: true });
   }

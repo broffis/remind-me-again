@@ -12,8 +12,8 @@ import sys
 import tempfile
 
 
-SKILL_NAME = "session-summary"
-MANIFEST = ".session-summary-install.json"
+SKILL_NAME = "remind-me-again"
+MANIFEST = ".remind-me-again-install.json"
 PAYLOAD = [
     "SKILL.md",
     "scripts/autosave.py",
@@ -81,7 +81,7 @@ def install(source_root, skills_directory, update=False):
             raise ValueError(f"Download is incomplete: missing {filename}")
     skills_directory.mkdir(parents=True, exist_ok=True)
     # Stage and back up on the same filesystem so renames are atomic.
-    with tempfile.TemporaryDirectory(prefix=".session-summary-", dir=skills_directory) as work:
+    with tempfile.TemporaryDirectory(prefix=".remind-me-again-", dir=skills_directory) as work:
         staging = Path(work) / "new"
         staging.mkdir()
         for filename in PAYLOAD:
@@ -162,7 +162,7 @@ def main():
         else:
             destination = install(Path(__file__).resolve().parent, directory, args.update)
             print(f"Installed: {destination}")
-            print("In Copilot CLI: /skills reload, then /skills info session-summary")
+            print("In Copilot CLI: /skills reload, then /skills info remind-me-again")
             print("Automation settings were not changed; new installations default to off.")
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"Cannot install/uninstall skill: {error}\n")

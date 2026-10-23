@@ -1,5 +1,5 @@
 ---
-name: session-summary
+name: remind-me-again
 description: Save or retrieve session info, recall saved project progress, wrap up a session, or create incremental rollups. Include related session IDs, dates, and resume commands under ~/.copilot/session-info.
 ---
 
@@ -25,7 +25,7 @@ argument parser.
 | `rollup` | Follow Create or refresh a rollup. |
 | `configure --feature <autosave\|autoread> --scope <repo\|global> --mode <on\|off\|inherit>` | Run `scripts/autosave.py configure` with those exact options and the user's current working directory via `--cwd`. |
 
-For example, "Use the /session-summary skill: read" selects the read operation.
+For example, "Use the /remind-me-again skill: read" selects the read operation.
 For configuration, require explicit feature, scope, and mode; ask for any
 missing values rather than guessing whether to enable global automation.
 Do not combine operations or install the skill unless the user requests it.
@@ -45,7 +45,7 @@ setup merely to satisfy an automatic checkpoint.
 Uninstall removes the installed skill and the current project's recognized
 setup and two saved MCP approvals while preserving summaries and unrelated
 configuration. It must run with Copilot closed; provide the user an external
-`npx @broffis/session-summary-skill@latest uninstall --cwd <directory>` command
+`npx remind-me-again@latest uninstall --cwd <directory>` command
 rather than uninstalling in a live session. `--dry-run` previews without changes.
 Add `--global` only when the user explicitly requests global setup removal.
 Other projects' setup remains; the installed skill is shared across projects.
@@ -57,7 +57,7 @@ run the following command relative to this skill's base directory, substituting
 the user's current working directory, not the skill installation directory:
 
 ```sh
-python3 "/path/to/session-summary/scripts/retrieval.py" \
+python3 "/path/to/remind-me-again/scripts/retrieval.py" \
   --cwd "/Users/example/personal/recipe-app"
 ```
 
@@ -130,7 +130,7 @@ so shell expressions in the summary are not expanded. Substitute the real paths,
 ID, date, and summary; do not literally use these example values:
 
 ```sh
-python3 "/path/to/session-summary/scripts/save_summary.py" \
+python3 "/path/to/remind-me-again/scripts/save_summary.py" \
   --cwd "/Users/example/personal/recipe-app" \
   --session-id "12345678-1234-1234-1234-123456789abc" \
   --session-date "2026-10-23" <<'SESSION_SUMMARY'
@@ -169,7 +169,7 @@ When an installed `agentStop` hook requests a checkpoint:
    `autosave.py checkpoint` command. The helper uses the session's stored start
    date. Do not replace that command with `save_summary.py`. In opt-in MCP mode,
    the hook says only "Session-summary autosave requested". Before composing
-   the summary, call `session-summary/get_checkpoint_context` once using the
+   the summary, call `remind-me-again/get_checkpoint_context` once using the
    exact current session UUID from trusted runtime context (for example, the
    UUID basename of this session's runtime-provided session-state directory).
    Never use a prior session UUID from saved summaries, choose the newest session,
@@ -216,7 +216,7 @@ summary written against older context.
    agent's session artifact directory (not the project or raw summaries):
 
    ```sh
-   python3 "/path/to/session-summary/scripts/rollup.py" prepare \
+   python3 "/path/to/remind-me-again/scripts/rollup.py" prepare \
      --cwd "/Users/example/personal/recipe-app" > "/path/to/session-artifacts/rollup-plan.json"
    ```
 
@@ -235,7 +235,7 @@ summary written against older context.
 5. Save the synthesis using the exact, unmodified plan:
 
    ```sh
-   python3 "/path/to/session-summary/scripts/rollup.py" save \
+   python3 "/path/to/remind-me-again/scripts/rollup.py" save \
      --plan "/path/to/session-artifacts/rollup-plan.json" <<'ROLLUP_SUMMARY'
    The integrated summary goes here.
    ROLLUP_SUMMARY

@@ -24,7 +24,7 @@ class InstallTests(unittest.TestCase):
 
     def test_install_copies_all_helpers_without_enabling_hooks(self):
         destination = installer.install(ROOT, self.skills)
-        for script in (ROOT / "session-summary/scripts").glob("*.py"):
+        for script in (ROOT / "remind-me-again/scripts").glob("*.py"):
             self.assertEqual(
                 (destination / "scripts" / script.name).read_bytes(),
                 script.read_bytes(),
@@ -77,8 +77,8 @@ class InstallTests(unittest.TestCase):
 
     def test_symlink_install_is_not_replaced_or_deleted(self):
         self.skills.mkdir()
-        destination = self.skills / "session-summary"
-        destination.symlink_to(ROOT / "session-summary", target_is_directory=True)
+        destination = self.skills / "remind-me-again"
+        destination.symlink_to(ROOT / "remind-me-again", target_is_directory=True)
         for action in (
             lambda: installer.install(ROOT, self.skills, update=True),
             lambda: installer.uninstall(self.skills),
@@ -126,7 +126,7 @@ class InstallTests(unittest.TestCase):
             ],
             check=True, capture_output=True, text=True,
         )
-        archive_path = output / "session-summary-skill-v0.1.0.zip"
+        archive_path = output / "remind-me-again-v0.1.0.zip"
         checksum = archive_path.with_suffix(".zip.sha256").read_text().split()[0]
         self.assertEqual(checksum, hashlib.sha256(archive_path.read_bytes()).hexdigest())
         extracted = self.skills.parent / "download"
@@ -134,7 +134,7 @@ class InstallTests(unittest.TestCase):
             self.assertEqual(len(archive.namelist()), len(installer.PAYLOAD) + 3)
             archive.extractall(extracted)
         command = [
-            sys.executable, "-B", str(extracted / "session-summary-skill/install.py"),
+            sys.executable, "-B", str(extracted / "remind-me-again/install.py"),
             "--skills-dir", str(self.skills),
         ]
         environment = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
@@ -145,14 +145,14 @@ class InstallTests(unittest.TestCase):
             )
         for script in ("autosave.py", "save_summary.py", "retrieval.py", "rollup.py"):
             subprocess.run(
-                [sys.executable, "-B", str(self.skills / "session-summary/scripts" / script), "--help"],
+                [sys.executable, "-B", str(self.skills / "remind-me-again/scripts" / script), "--help"],
                 check=True, capture_output=True, text=True,
             )
         subprocess.run(
             command + ["--uninstall", "--cwd", str(self.skills.parent)], env=environment, check=True,
             capture_output=True, text=True,
         )
-        self.assertFalse((self.skills / "session-summary").exists())
+        self.assertFalse((self.skills / "remind-me-again").exists())
 
 
 if __name__ == "__main__":
