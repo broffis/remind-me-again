@@ -27,6 +27,6 @@
     "access": "public"
   },
   "scripts": {
-    "test": "node --test tests/npm-installer.test.cjs"
+    "test": "node --test tests/*.test.cjs"
   }
 }
