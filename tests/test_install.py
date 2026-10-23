@@ -1,5 +1,6 @@
 import importlib.util
 import hashlib
+import json
 import os
 import subprocess
 import sys
@@ -37,6 +38,18 @@ class InstallTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "update"):
             installer.install(ROOT, self.skills)
         self.assertEqual(installer.install(ROOT, self.skills, update=True), destination)
+
+    def test_update_accepts_previous_payload_without_mcp_writer(self):
+        destination = installer.install(ROOT, self.skills)
+        (destination / "scripts/checkpoint_mcp.py").unlink()
+        (destination / "scripts/setup_mcp.py").unlink()
+        manifest_path = destination / installer.MANIFEST
+        manifest = json.loads(manifest_path.read_text())
+        del manifest["files"]["scripts/checkpoint_mcp.py"]
+        del manifest["files"]["scripts/setup_mcp.py"]
+        manifest_path.write_text(json.dumps(manifest))
+        installer.install(ROOT, self.skills, update=True)
+        self.assertTrue((destination / "scripts/checkpoint_mcp.py").is_file())
 
     def test_update_and_uninstall_refuse_modified_or_unowned_install(self):
         destination = installer.install(ROOT, self.skills)

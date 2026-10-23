@@ -4,9 +4,12 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
 const usage = `Usage: session-summary-skill <install|update|uninstall> [--skills-dir <directory>]
+       session-summary-skill setup-mcp [--cwd <directory>] [--skills-dir <directory>] [--approve] [--dry-run]
 
 Installs the bundled Copilot skill using Python 3.9+ on macOS or Linux.
-Automation settings are never changed.
+Install/update never change automation settings.
+setup-mcp explicitly enables project MCP autosave using the installed skill.
+--approve saves only this repository's checkpoint tool permission; close Copilot first.
 `;
 
 function main(args) {
@@ -16,11 +19,31 @@ function main(args) {
   }
 
   const [action, ...options] = args;
-  const validAction = ['install', 'update', 'uninstall'].includes(action);
-  const validOptions = options.length === 0 || (
+  const setup = action === 'setup-mcp';
+  const validAction = ['install', 'update', 'uninstall', 'setup-mcp'].includes(action);
+  let validOptions = options.length === 0 || (
     options.length === 2 && options[0] === '--skills-dir'
     && options[1].length > 0 && !options[1].startsWith('-')
   );
+  let skillsDirectory = path.join(require('node:os').homedir(), '.copilot', 'skills');
+  const setupOptions = [];
+  if (setup) {
+    validOptions = true;
+    const seen = new Set();
+    for (let i = 0; i < options.length; i++) {
+      const option = options[i];
+      if (seen.has(option)) { validOptions = false; break; }
+      seen.add(option);
+      if (['--approve', '--dry-run'].includes(option)) {
+        setupOptions.push(option);
+      } else if (['--cwd', '--skills-dir'].includes(option)
+        && options[i + 1] && !options[i + 1].startsWith('-')) {
+        const value = options[++i];
+        if (option === '--skills-dir') skillsDirectory = path.resolve(value);
+        else setupOptions.push(option, value);
+      } else { validOptions = false; break; }
+    }
+  }
   if (!validAction || !validOptions) {
     process.stderr.write(usage);
     return 2;
@@ -30,12 +53,18 @@ function main(args) {
     return 1;
   }
 
-  const installer = path.resolve(__dirname, '..', 'install.py');
+  const installer = setup
+    ? path.join(skillsDirectory, 'session-summary', 'scripts', 'setup_mcp.py')
+    : path.resolve(__dirname, '..', 'install.py');
+  if (setup && !require('node:fs').existsSync(installer)) {
+    process.stderr.write('Install/update the skill before running setup-mcp.\n');
+    return 1;
+  }
   const pythonArgs = ['-B', installer];
-  if (action !== 'install') {
+  if (!setup && action !== 'install') {
     pythonArgs.push(`--${action}`);
   }
-  pythonArgs.push(...options);
+  pythonArgs.push(...(setup ? setupOptions : options));
   const result = spawnSync('python3', pythonArgs, { stdio: 'inherit' });
   if (result.error) {
     const message = result.error.code === 'ENOENT'
