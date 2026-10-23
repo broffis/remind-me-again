@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/broffis/session-summary-skill/compare/v0.1.3...v0.1.4) (2026-10-23)
+
+
+### Bug Fixes
+
+* uninstall setup cleanup ([#9](https://github.com/broffis/session-summary-skill/issues/9)) ([33425fb](https://github.com/broffis/session-summary-skill/commit/33425fb6f6aa969b5920f4197670872c9bd04ed4))
+
 ## [0.1.3](https://github.com/broffis/session-summary-skill/compare/v0.1.2...v0.1.3) (2026-10-23)
 
 
