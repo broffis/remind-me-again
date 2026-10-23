@@ -1,6 +1,6 @@
 {
   "name": "@broffis/session-summary-skill",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Install a Copilot skill for local session summaries, rollups, and opt-in context retrieval.",
   "license": "MIT",
   "repository": {
