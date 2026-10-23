@@ -14,6 +14,9 @@ from storage import project_directory
 
 SERVER = "session-summary"
 APPROVAL = {"kind": "mcp", "serverName": SERVER, "toolName": "save_checkpoint"}
+CONTEXT_APPROVAL = {
+    "kind": "mcp", "serverName": SERVER, "toolName": "get_checkpoint_context"
+}
 
 
 def permission_location(cwd):
@@ -47,7 +50,7 @@ def plan_setup(cwd, approve=False):
     server = {
         "type": "stdio", "command": sys.executable,
         "args": ["-B", str(script), "--cwd", str(cwd)],
-        "tools": ["save_checkpoint"],
+        "tools": ["get_checkpoint_context", "save_checkpoint"],
         "env": {"COPILOT_HOME": str(copilot_home().resolve())},
     }
     mcp_path = root / ".mcp.json"
@@ -58,7 +61,9 @@ def plan_setup(cwd, approve=False):
     if not isinstance(servers, dict):
         raise ValueError(f"Expected an MCP server map: {mcp_path}")
     if SERVER in servers and servers[SERVER] != server:
-        raise ValueError(f"Refusing to replace an existing {SERVER} server: {mcp_path}")
+        previous = dict(server, tools=["save_checkpoint"])
+        if servers[SERVER] != previous:
+            raise ValueError(f"Refusing to replace an existing {SERVER} server: {mcp_path}")
     servers[SERVER] = server
 
     hook_path = root / ".github/hooks/session-info.json"
@@ -93,6 +98,8 @@ def plan_setup(cwd, approve=False):
             raise ValueError("Saved tool approvals must be an array of objects.")
         if APPROVAL not in approvals:
             approvals.append(dict(APPROVAL))
+        if CONTEXT_APPROVAL not in approvals:
+            approvals.append(dict(CONTEXT_APPROVAL))
         writes.append((permissions_path, permissions))
     return writes
 
@@ -118,7 +125,7 @@ def main():
     parser.add_argument("--cwd", type=Path, default=Path.cwd())
     parser.add_argument(
         "--approve", action="store_true",
-        help="Explicitly persist this repository's save_checkpoint approval. "
+        help="Explicitly persist this repository's checkpoint lookup/save approvals. "
              "Close Copilot sessions first; no shell or Python approval is granted.",
     )
     parser.add_argument("--dry-run", action="store_true", help="Validate without writing.")
@@ -127,7 +134,7 @@ def main():
         paths = setup(args.cwd, args.approve, args.dry_run)
         print(("Would update" if args.dry_run else "Updated") + ":\n" + "\n".join(paths))
         if args.approve:
-            print("Approval scope: this repository's session-summary/save_checkpoint only.")
+            print("Approval scope: this repository's session-summary checkpoint lookup/save only.")
         else:
             print("No tool approval granted. Approve save_checkpoint in Copilot when prompted.")
         print("Restart Copilot from the configured working directory to load the setup.")

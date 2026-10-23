@@ -62,7 +62,7 @@ class CheckpointMCPTests(unittest.TestCase):
         self.assertEqual(responses[0]["result"]["protocolVersion"], "2025-06-18")
         self.assertEqual(
             [tool["name"] for tool in responses[1]["result"]["tools"]],
-            ["save_checkpoint"],
+            ["get_checkpoint_context", "save_checkpoint"],
         )
         destination = Path(responses[2]["result"]["content"][0]["text"])
         self.assertIn("MCP progress.", destination.read_text())
@@ -118,6 +118,59 @@ class CheckpointMCPTests(unittest.TestCase):
         self.assertEqual(responses[1]["error"]["code"], -32000)
         self.assertEqual(responses[3]["error"]["code"], -32601)
         self.assertTrue(responses[4]["result"]["isError"])
+
+    def test_lookup_is_exact_pending_session_and_does_not_refresh_stale_save(self):
+        self.enable()
+        self.start()
+        self.prompt()
+        params = {"name": "get_checkpoint_context", "arguments": {"session_id": SESSION}}
+        with self.assertRaisesRegex(ValueError, "pending"):
+            checkpoint_mcp.call_tool(self.cwd, params)
+        self.stop()
+        before = autosave.read_state(self.cwd, SESSION)
+        result = checkpoint_mcp.call_tool(self.cwd, params)
+        context = json.loads(result["content"][0]["text"])
+        self.assertEqual(context["session_id"], SESSION)
+        self.assertEqual(context["token"], before["requested"])
+        self.assertEqual(autosave.read_state(self.cwd, SESSION), before)
+        other_session = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
+        self.event("sessionStart", sessionId=other_session, source="startup")
+        self.event("userPromptSubmitted", sessionId=other_session,
+                   prompt="Other session", timestamp=START + 3)
+        self.event("agentStop", sessionId=other_session, stop_hook_active=False)
+        self.assertEqual(
+            json.loads(checkpoint_mcp.call_tool(self.cwd, params)["content"][0]["text"]),
+            context,
+        )
+        self.prompt("New request.", START + 4)
+        with self.assertRaisesRegex(ValueError, "pending"):
+            checkpoint_mcp.call_tool(self.cwd, params)
+        self.stop()
+        with self.assertRaisesRegex(ValueError, "stale"):
+            checkpoint_mcp.call_tool(self.cwd, {
+                "name": "save_checkpoint",
+                "arguments": dict(session_id=SESSION, token=context["token"], summary="Old"),
+            })
+
+    def test_lookup_rejects_unknown_session_extra_fields_and_disabled_autosave(self):
+        self.enable()
+        self.start()
+        self.prompt()
+        self.stop()
+        for arguments, error in (
+            ({"session_id": "../other"}, "UUID"),
+            ({"session_id": "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"}, "Missing"),
+            ({"session_id": SESSION, "cwd": str(self.repo)}, "only"),
+        ):
+            with self.assertRaisesRegex(ValueError, error):
+                checkpoint_mcp.call_tool(self.cwd, {
+                    "name": "get_checkpoint_context", "arguments": arguments,
+                })
+        autosave.configure("repo", "off", self.cwd)
+        with self.assertRaisesRegex(ValueError, "disabled"):
+            checkpoint_mcp.call_tool(self.cwd, {
+                "name": "get_checkpoint_context", "arguments": {"session_id": SESSION},
+            })
 
 
 if __name__ == "__main__":
