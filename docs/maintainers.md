@@ -9,19 +9,25 @@ Helpers live in `session-summary/scripts/`.
 | Script | Responsibility and reading order |
 | --- | --- |
 | `storage.py` | Validate dates and map a working directory to its project storage. |
-| `save_summary.py` | Validate a summary, format its entry, and append under a file lock. |
-| `rollup.py` | `prepare` reads rollup history and uncovered raw bytes; `save` checks that snapshot, renders Markdown, and replaces the file atomically. |
+| `save_summary.py` | Validate a summary, then write or replace the session's block atomically under a lock. |
+| `rollup.py` | `prepare` reads rollup history and uncovered raw session blocks; `save` checks that snapshot, renders Markdown, and replaces the file atomically. |
 | `retrieval.py` | `retrieve` combines rollup sections and uncovered raw sections, then applies the context limit. |
-| `autosave.py` | `configure` installs settings/hooks; `handle` dispatches events; `checkpoint` appends progress before recording success. |
+| `autosave.py` | `configure` installs settings/hooks; `handle` dispatches events; `checkpoint` writes the session block before recording success. |
 
 Persisted state details:
 
 - Autosave keeps three turn hashes: `turn` (latest user prompt), `requested`
   (turn already given a save continuation), and `saved` (last successful
   checkpoint). They are hashes, not summary text.
-- A failed state update can follow a successful raw append; the entry's
-  checkpoint marker makes retrying that append safe.
-- Rollup `sources` records consumed byte offsets and hashes. `prepare` returns
+- A failed state update can follow a successful raw write; the block's
+  checkpoint marker makes retrying that write safe.
+- Raw files hold one block per session ID, split on `---` only when followed by
+  a `## Session <uuid>` header. Saves rewrite the file atomically (temp file +
+  rename) under `raw summaries/.lock`.
+- Rollup `sources` records per-block SHA-256 digests (metadata version 2; legacy
+  byte-prefix checkpoints are still read, and fall back to re-rolling the file if
+  their prefix was modified). A replaced block has a new digest, so it is pending
+  again. `prepare` returns
   prospective checkpoints without persisting them; only `save` commits them.
   Retrieval reuses that logic but never advances it.
 
@@ -77,7 +83,7 @@ for verification, versioning, administrator setup, publishing, and recovery.
 
 - Python 3.9+ on macOS or Linux; no external dependencies.
 - Working directories must be below the user's home directory.
-- Appends lock each output file so cooperating writers don't interleave entries.
+- Saves take a per-project lock and replace the daily file atomically.
   Rollups are replaced atomically under a separate lock and reject stale plans.
 - Helpers use only local files and make no network or model calls. Autosave asks
   the existing Copilot agent to write the checkpoint; no separate CLI or SDK client runs.

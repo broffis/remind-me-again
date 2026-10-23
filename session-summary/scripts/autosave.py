@@ -395,7 +395,7 @@ def handle_autosave(event, payload):
 
 
 def checkpoint(cwd, session_id, token, summary):
-    """Append idempotently before recording success, so failures remain retryable."""
+    """Write idempotently before recording success, so failures remain retryable."""
     if not enabled(cwd):
         raise ValueError("Autosave is disabled for this working directory.")
     if not summary.strip():

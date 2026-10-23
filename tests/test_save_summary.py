@@ -47,18 +47,41 @@ class SaveSummaryTests(unittest.TestCase):
         self.assertIn(f"Working directory: {self.cwd}", content)
         self.assertIn("Completed the work.", content)
 
-    def test_appends_same_session_and_other_sessions_without_overwriting(self):
+    def test_replaces_same_session_block_and_keeps_other_sessions(self):
         destination = self.save("First entry.")
-        original = destination.read_bytes()
-        self.save("More progress.")
         other_id = "87654321-4321-4321-4321-cba987654321"
         self.save("Another session.", session_id=other_id)
+        other_block = destination.read_text().split("\n\n---\n\n")[1]
+        self.save("Cumulative progress.")
         content = destination.read_text()
-        self.assertTrue(destination.read_bytes().startswith(original))
-        self.assertEqual(content.count(f"## Session {SESSION_ID}"), 2)
-        self.assertIn(f"copilot --resume={other_id}", content)
-        self.assertIn("More progress.", content)
-        self.assertIn("Another session.", content)
+        self.assertEqual(content.count(f"## Session {SESSION_ID}"), 1)
+        self.assertNotIn("First entry.", content)
+        self.assertIn("Cumulative progress.", content)
+        self.assertTrue(content.startswith(f"## Session {SESSION_ID}"))
+        self.assertIn(other_block, content)
+        self.assertEqual(list(destination.parent.glob(".raw-*")), [])
+
+    def test_summary_containing_horizontal_rule_is_not_split(self):
+        destination = self.save("Part one.\n\n---\n\nPart two.")
+        self.save("Replacement.")
+        self.assertEqual(destination.read_text().count("Replacement."), 1)
+        self.assertNotIn("Part two.", destination.read_text())
+
+    def test_same_checkpoint_marker_is_idempotent(self):
+        token = "a" * 64
+        destination = self.save("Checkpoint.", checkpoint_id=token)
+        original = destination.read_bytes()
+        self.save("Retry text.", checkpoint_id=token)
+        self.assertEqual(destination.read_bytes(), original)
+        self.save("Next checkpoint.", checkpoint_id="b" * 64)
+        self.assertNotIn("Checkpoint.", destination.read_text())
+
+    def test_rejects_raw_file_without_session_headers(self):
+        destination = self.save()
+        destination.write_text("Hand-written notes.")
+        with self.assertRaisesRegex(ValueError, "session ID"):
+            self.save("New.")
+        self.assertEqual(destination.read_text(), "Hand-written notes.")
 
     def test_uses_supplied_session_date_and_keeps_projects_separate(self):
         first = self.save(session_date="2026-10-22")

@@ -12,16 +12,14 @@ import sys
 import tempfile
 from uuid import UUID
 
-from storage import project_directory, validate_date
+from storage import (
+    BLOCK_SEPARATOR, SESSION_HEADER, project_directory, split_blocks, validate_date,
+)
 
 
 PREFIX = "<!-- session-rollup: "
 SUFFIX = " -->"
 BODY_MARKER = "\n<!-- summary -->\n"
-SESSION_HEADER = re.compile(
-    r"^## Session ([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
-    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$", re.MULTILINE
-)
 
 
 def digest(content):
@@ -35,12 +33,19 @@ def read_metadata(content, path):
         raise ValueError(f"Missing rollup tracking metadata: {path}")
     try:
         metadata = json.loads(first[len(PREFIX):-len(SUFFIX)])
-        if metadata["version"] != 1 or BODY_MARKER not in content:
+        if metadata["version"] not in (1, 2) or BODY_MARKER not in content:
             raise ValueError("Unsupported format")
         for filename, checkpoint in metadata["sources"].items():
             validate_date(Path(filename).stem)
             if filename != f"{Path(filename).stem}.md":
                 raise ValueError("Invalid source filename")
+            if "blocks" in checkpoint:
+                if metadata["version"] != 2 or not all(
+                    re.fullmatch(r"[0-9a-f]{64}", item)
+                    for item in checkpoint["blocks"]
+                ):
+                    raise ValueError("Invalid source block digests")
+                continue
             if type(checkpoint["bytes"]) is not int or checkpoint["bytes"] < 0:
                 raise ValueError("Invalid source offset")
             if not re.fullmatch(r"[0-9a-f]{64}", checkpoint["sha256"]):
@@ -68,18 +73,33 @@ def read_rollup_history(rollup_directory, rollup_date):
         content = path.read_text(encoding="utf-8")
         metadata = read_metadata(content, path)
         rollups[path.name] = digest(content.encode("utf-8"))
-        for filename, checkpoint in metadata["sources"].items():
-            previous_offset = sources.get(filename, {"bytes": -1})["bytes"]
-            if checkpoint["bytes"] >= previous_offset:
-                sources[filename] = checkpoint
+        # Rollups are read oldest first, so later coverage of a file supersedes earlier.
+        sources.update(metadata["sources"])
         if path.stem == rollup_date:
             existing_summary = content.split(BODY_MARKER, 1)[1].strip()
             sessions.update((item["date"], item["id"]) for item in metadata["sessions"])
     return sources, rollups, sessions, existing_summary
 
 
+def covered_hashes(prior, content):
+    """Return digests of the blocks a rollup already summarized for one raw file."""
+    if "blocks" in prior:
+        return set(prior["blocks"])
+    # Legacy byte-prefix checkpoint: usable only while its prefix is untouched.
+    offset = prior["bytes"]
+    if len(content) < offset or digest(content[:offset]) != prior["sha256"]:
+        return set()
+    return {digest(block.encode("utf-8")) for block in split_blocks(
+        content[:offset].decode("utf-8")
+    )}
+
+
 def read_uncovered_raw(raw_directory, sources):
-    """Verify consumed prefixes and return only bytes appended after them."""
+    """Return session blocks whose exact content no rollup has summarized yet.
+
+    A session's block may be replaced by a later checkpoint; its new content
+    has a new digest, so it is pending again.
+    """
     for filename in sources:
         if not (raw_directory / filename).is_file():
             raise ValueError(f"Previously summarized raw file is missing: {filename}")
@@ -91,22 +111,19 @@ def read_uncovered_raw(raw_directory, sources):
         validate_date(path.stem)
         if path.is_symlink():
             raise ValueError(f"Raw summary must not be a symbolic link: {path}")
-        with path.open("rb") as source:
-            fcntl.flock(source, fcntl.LOCK_SH)
-            content = source.read()
-        prior = sources.get(path.name, {"bytes": 0, "sha256": digest(b"")})
-        offset = prior["bytes"]
-        if len(content) < offset or digest(content[:offset]) != prior["sha256"]:
-            raise ValueError(f"Previously summarized raw content changed: {path}")
-        if len(content) == offset:
+        content = path.read_bytes()
+        blocks = split_blocks(content.decode("utf-8"))
+        hashes = [digest(block.encode("utf-8")) for block in blocks]
+        covered = covered_hashes(sources[path.name], content) if path.name in sources else set()
+        uncovered = [
+            block for block, value in zip(blocks, hashes) if value not in covered
+        ]
+        if not uncovered:
             continue
-        text = content[offset:].decode("utf-8")
-        session_ids = SESSION_HEADER.findall(text)
-        if not session_ids:
-            raise ValueError(f"New raw content has no session ID: {path}")
-        sessions.update((path.stem, session_id) for session_id in session_ids)
+        text = BLOCK_SEPARATOR.join(uncovered)
+        sessions.update((path.stem, item) for item in SESSION_HEADER.findall(text))
         pending.append({"file": path.name, "text": text})
-        checkpoints[path.name] = {"bytes": len(content), "sha256": digest(content)}
+        checkpoints[path.name] = {"blocks": sorted(set(hashes))}
     return pending, checkpoints, sessions
 
 
@@ -136,7 +153,7 @@ def prepare(cwd, rollup_date):
 
 def render_rollup(plan, summary):
     metadata = {
-        "version": 1,
+        "version": 2,
         "sources": plan["sources"],
         "sessions": plan["sessions"],
     }

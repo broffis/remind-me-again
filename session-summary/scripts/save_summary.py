@@ -4,15 +4,23 @@ import argparse
 from datetime import datetime
 import fcntl
 import os
+from pathlib import Path
 import re
+import stat
 import sys
+import tempfile
 from uuid import UUID
 
-from storage import project_directory, validate_date
+from storage import (
+    BLOCK_SEPARATOR, block_session_id, project_directory, split_blocks, validate_date,
+)
 
 
 def save_summary(cwd, session_id, session_date, summary, checkpoint_id=None):
-    """Append one entry, or reuse an entry with the same checkpoint marker."""
+    """Write the session's single block, replacing its previous summary if present.
+
+    A repeated checkpoint with the same marker leaves the file unchanged.
+    """
     if str(UUID(session_id)) != session_id.lower():
         raise ValueError("Session ID must be a hyphenated UUID.")
     validate_date(session_date)
@@ -42,20 +50,51 @@ def save_summary(cwd, session_id, session_date, summary, checkpoint_id=None):
         f"- Resume: `copilot --resume={session_id}`\n\n"
         f"{summary.strip()}\n{marker}"
     )
-    with destination.open("a+", encoding="utf-8") as output:
-        fcntl.flock(output, fcntl.LOCK_EX)
-        if marker:
-            output.seek(0)
-            # The append may have succeeded before an autosave state update failed.
-            if marker in output.read():
-                return destination
-        output.seek(0, os.SEEK_END)
-        if output.tell():
-            output.write("\n\n---\n\n")
-        output.write(entry)
-        output.flush()
-        os.fsync(output.fileno())
+    lock_path = raw_directory / ".lock"
+    if lock_path.is_symlink():
+        raise ValueError("Raw summary lock must not be a symbolic link.")
+    with lock_path.open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        existing = destination.read_text(encoding="utf-8") if destination.exists() else ""
+        blocks = split_blocks(existing)
+        owned = [
+            index for index, block in enumerate(blocks)
+            if block_session_id(block) == session_id
+        ]
+        # The write may have succeeded before an autosave state update failed.
+        if marker and owned and marker in blocks[owned[-1]]:
+            return destination
+        if owned:
+            blocks[owned[-1]] = entry
+        else:
+            blocks.append(entry)
+        replace_file(destination, BLOCK_SEPARATOR.join(blocks), existing != "")
     return destination
+
+
+def replace_file(destination, content, keep_mode):
+    """Atomically replace the daily file so readers never see a partial write."""
+    if keep_mode:
+        mode = stat.S_IMODE(destination.stat().st_mode)
+    else:
+        umask = os.umask(0)
+        os.umask(umask)
+        mode = 0o666 & ~umask
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=destination.parent,
+            prefix=".raw-", delete=False,
+        ) as output:
+            temporary_path = Path(output.name)
+            output.write(content)
+            output.flush()
+            os.fsync(output.fileno())
+        os.chmod(temporary_path, mode)
+        os.replace(temporary_path, destination)
+    finally:
+        if temporary_path is not None and temporary_path.exists():
+            temporary_path.unlink()
 
 
 def main():

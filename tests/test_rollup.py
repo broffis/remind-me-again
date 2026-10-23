@@ -141,12 +141,46 @@ class RollupTests(unittest.TestCase):
         rollup.save(self.prepare(), "Saved synthesis.")
         original = raw.read_bytes()
         raw.write_text("Changed earlier content.")
-        with self.assertRaisesRegex(ValueError, "changed"):
+        with self.assertRaisesRegex(ValueError, "session ID"):
             self.prepare()
         raw.write_bytes(original)
         raw.unlink()
         with self.assertRaisesRegex(ValueError, "missing"):
             self.prepare()
+
+    def test_replaced_session_block_becomes_pending_again(self):
+        self.raw("Early progress.")
+        self.raw("Other session.", SECOND)
+        rollup.save(self.prepare(), "First synthesis.")
+        self.raw("Cumulative progress.")
+        plan = self.prepare("2026-10-24")
+        self.assertEqual(len(plan["pending"]), 1)
+        self.assertIn("Cumulative progress.", plan["pending"][0]["text"])
+        self.assertNotIn("Other session.", plan["pending"][0]["text"])
+        rollup.save(plan, "Second synthesis.")
+        self.assertEqual(self.prepare("2026-10-25")["pending"], [])
+
+    def test_legacy_byte_prefix_rollup_is_read_and_survives_replacement(self):
+        raw = self.raw("Legacy progress.")
+        content = raw.read_bytes()
+        legacy = {
+            "version": 1,
+            "sources": {raw.name: {
+                "bytes": len(content), "sha256": rollup.digest(content),
+            }},
+            "sessions": [{"date": "2026-10-22", "id": FIRST}],
+        }
+        directory = raw.parent.parent / "rollup"
+        (directory / "2026-10-23.md").write_text(
+            f"{rollup.PREFIX}{json.dumps(legacy)}{rollup.SUFFIX}\n\n"
+            f"# Rollup\n{rollup.BODY_MARKER}Legacy synthesis.\n"
+        )
+        self.assertEqual(self.prepare("2026-10-24")["pending"], [])
+        self.raw("Replacement.")
+        plan = self.prepare("2026-10-24")
+        self.assertIn("Replacement.", plan["pending"][0]["text"])
+        rollup.save(plan, "Refreshed.")
+        self.assertEqual(self.prepare("2026-10-25")["pending"], [])
 
     def test_rejects_empty_synthesis_and_untracked_existing_rollup(self):
         self.raw()
