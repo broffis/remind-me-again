@@ -1,0 +1,87 @@
+name: Verification
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit or tag to verify
+        type: string
+        required: false
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  workflows:
+    name: Workflow lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+      - name: Validate workflow syntax and expressions
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+
+  title:
+    name: Conventional PR title
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Validate squash commit title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          node -e "if (!/^(feat|fix|docs|refactor|test|chore)(\([^)]+\))?!?: .+/.test(process.env.PR_TITLE)) throw Error('Use a Conventional Commit PR title, for example feat: add session search');"
+
+  verify:
+    name: ${{ matrix.os }} / Python ${{ matrix.python }} / Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            python: "3.9"
+            node: "18"
+          - os: ubuntu-latest
+            python: "3.14"
+            node: "24"
+          - os: macos-latest
+            python: "3.14"
+            node: "24"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - name: Run all Python tests
+        run: python3 -B -m unittest discover -s tests -v
+      - name: Run all JavaScript tests
+        if: ${{ !cancelled() }}
+        run: npm test
+      - name: Check release version consistency
+        run: |
+          node -e "const version = require('./package.json').version; if (require('./.release-please-manifest.json')['.'] !== version) throw Error('Release manifest and package version must match');"
+      - name: Build release ZIP and verify checksum
+        shell: bash
+        run: |
+          version="v$(node -p "require('./package.json').version")"
+          python3 -B build_release.py --version "$version" --output-dir "$RUNNER_TEMP/zip"
+          cd "$RUNNER_TEMP/zip"
+          shasum -a 256 -c "session-summary-skill-$version.zip.sha256"
+      - name: Preview npm package contents
+        run: npm pack --dry-run --ignore-scripts

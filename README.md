@@ -410,6 +410,11 @@ Publishing is a separate, explicit action requiring npm authorization for the
 The package version is maintained in `package.json`; coordinate it with the
 intended GitHub Release version.
 
+## CI/CD and releases
+
+See [RELEASE_FLOW.md](https://github.com/broffis/session-summary-skill/blob/main/RELEASE_FLOW.md)
+for verification, versioning, administrator setup, publishing, and recovery.
+
 ## Requirements and checks
 
 Python 3.9+ on macOS or Linux; no external dependencies. Working directories
