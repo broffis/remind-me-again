@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/broffis/session-summary-skill/compare/v0.1.2...v0.1.3) (2026-10-23)
+
+
+### Bug Fixes
+
+* compact autosave context ([#7](https://github.com/broffis/session-summary-skill/issues/7)) ([cb37a45](https://github.com/broffis/session-summary-skill/commit/cb37a4564c96ae6d485e24e59522ee43f01a2975))
+
 ## [0.1.2](https://github.com/broffis/session-summary-skill/compare/v0.1.1...v0.1.2) (2026-10-23)
 
 
