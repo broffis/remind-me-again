@@ -19,6 +19,8 @@ PAYLOAD = [
     "scripts/rollup.py",
     "scripts/save_summary.py",
     "scripts/storage.py",
+    "scripts/checkpoint_mcp.py",
+    "scripts/setup_mcp.py",
 ]
 
 
@@ -39,10 +41,14 @@ def check_managed_install(destination):
         or manifest.get("installer") != SKILL_NAME
         or manifest.get("version") != 1
         or not isinstance(manifest.get("files"), dict)
-        or set(manifest["files"]) != set(PAYLOAD)
+        or set(manifest["files"]) not in (
+            set(PAYLOAD),
+            set(PAYLOAD) - {"scripts/setup_mcp.py"},
+            set(PAYLOAD) - {"scripts/checkpoint_mcp.py", "scripts/setup_mcp.py"},
+        )
     ):
         raise ValueError("Existing skill has an invalid managed-install manifest.")
-    expected = set(PAYLOAD) | {MANIFEST}
+    expected = set(manifest["files"]) | {MANIFEST}
     for path in destination.rglob("*"):
         relative = path.relative_to(destination)
         if path.is_symlink():

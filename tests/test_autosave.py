@@ -152,6 +152,31 @@ class AutosaveTests(unittest.TestCase):
         self.assertIn("Live continuation progress.", destination.read_text())
         self.assertEqual(self.event("agentStop", stop_hook_active=True), {})
 
+    def test_mcp_transport_is_explicit_and_preserves_continuation_token(self):
+        self.enable()
+        self.assertEqual(autosave.checkpoint_transport(self.cwd), "shell")
+        autosave.configure_transport(self.cwd, "mcp")
+        self.assertTrue(autosave.enabled(self.cwd))
+        self.start()
+        self.prompt()
+        result = self.stop()
+        self.assertIn("save_checkpoint", result["reason"])
+        self.assertNotIn("Send the summary through stdin", result["reason"])
+        self.assertIn("do not fall back to shell", result["reason"])
+        before = autosave.read_state(self.cwd, SESSION)
+        self.prompt(result["reason"], START + 2)
+        self.assertEqual(autosave.read_state(self.cwd, SESSION), before)
+        autosave.configure_transport(self.cwd, "shell")
+        self.assertEqual(autosave.checkpoint_transport(self.cwd), "shell")
+
+    def test_transport_configuration_does_not_enable_autosave(self):
+        autosave.configure_transport(self.cwd, "mcp")
+        self.assertFalse(autosave.enabled(self.cwd))
+        with self.assertRaisesRegex(ValueError, "transport"):
+            autosave.configure_transport(self.cwd, "unknown")
+        with self.assertRaisesRegex(ValueError, "repository"):
+            autosave.configure_transport(self.home, "mcp")
+
     def test_modified_continuation_prompt_still_invalidates_pending_token(self):
         self.enable()
         self.start()

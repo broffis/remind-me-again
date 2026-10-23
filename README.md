@@ -296,6 +296,110 @@ installed but do nothing; deleting only a repo hook does not disable a global
 hook. Each hook performs only enabled operations. Settings are checked on each
 hook invocation and before each save.
 
+### Optional project-bound MCP writer
+
+Shell checkpoint commands remain the default. For narrower automatic approval,
+the bundled `scripts/checkpoint_mcp.py` provides a local stdio MCP server with
+one tool, `save_checkpoint(session_id, token, summary)`. It uses the existing
+checkpoint writer and has no third-party dependencies or network listener.
+The server accepts no commands, working-directory overrides, or output paths
+from tool calls. It can append summaries and update checkpoint state only for
+its configured working directory, subject to autosave opt-in and current tokens.
+It cannot enable automation, register itself, or grant tool approval.
+
+#### One-command setup
+
+After installing/updating the skill, close Copilot sessions for this project
+and run this from the directory where you will use Copilot:
+
+```sh
+python3 "$HOME/.copilot/skills/session-summary/scripts/setup_mcp.py" --approve
+```
+
+Or use the installed npm package's command:
+
+```sh
+session-summary-skill setup-mcp --approve
+```
+
+This explicit setup registers the installed writer in the repository's
+`.mcp.json`, installs repo hooks, enables repo autosave, and selects MCP
+transport. `--cwd /path/to/project` selects another working directory.
+For a custom installation, the npm command accepts `--skills-dir /path/to/skills`.
+Use `--dry-run` to validate and preview which files would change without writing.
+Setup preserves unrelated configuration and rejects conflicting server/hook
+definitions. Rerunning the same setup is safe. Generated paths are personal:
+keep `.mcp.json`, `.github/hooks/session-info.json`, and
+`.github/session-info.json` local rather than committing them for other users.
+
+**`--approve` is a separate, explicit permission grant.** It saves only
+`session-summary/save_checkpoint` for this repository in Copilot's documented
+`permissions-config.json` schema, preserving all other approvals and directory
+grants. Linked worktrees use the main repository's permission scope. It never
+approves Python, shell commands, all MCP tools, or filesystem access generally.
+Omit this flag to leave approval to Copilot's prompts. Close Copilot first
+because it also manages this file; editing it during a session can lose changes.
+Legacy permission files must be migrated by Copilot first.
+
+Start Copilot normally afterward—no `--allow-tool` flag is needed when the
+saved approval is supported and loaded by your CLI. An older CLI that does not
+support saved MCP approvals may still prompt; setup never weakens permissions
+to compensate. CLI deny rules and organization policies remain authoritative.
+The writer remains bound to the exact setup directory, including subdirectories.
+
+To revoke the saved approval, use Copilot's permission controls or, with Copilot
+closed, remove only the matching MCP approval from this repository's entry in
+`permissions-config.json`. Uninstall does not revoke approvals or remove the
+project's MCP registration/hooks; remove those explicitly too.
+
+#### Manual setup
+
+Alternatively, explicitly register the server through
+`/mcp add`: name **session-summary**, type **STDIO**, command:
+
+```sh
+python3 -B /absolute/path/to/.copilot/skills/session-summary/scripts/checkpoint_mcp.py --cwd /absolute/path/to/project
+```
+
+Enable only the `save_checkpoint` tool. Use the same exact working directory as
+your Copilot session, including any subdirectory: storage is mapped by working
+directory, not Git root. This server intentionally serves only one such
+directory. Do not reuse its registration in sessions for other projects.
+If you use `COPILOT_HOME`, explicitly pass it in the server's environment too,
+so the writer reads the same global opt-in settings as your hooks.
+Registration is separate from approval; use the CLI's supported approval
+controls or explicitly start a session with:
+
+```sh
+copilot --allow-tool='session-summary(save_checkpoint)'
+```
+
+This permission allows summary writes through that tool, not arbitrary Python
+or shell execution. Approve only a server definition and installation you trust.
+Then select MCP transport for this repository (this does not enable autosave):
+
+```sh
+python3 "$HOME/.copilot/skills/session-summary/scripts/autosave.py" \
+  configure-transport --cwd "$PWD" --mode mcp
+```
+
+The repository's `.github/session-info.json` stores `checkpoint_transport`;
+missing means `shell`. This setting is repo-scoped, not global. Because the
+writer is bound to one directory, sessions using MCP transport in this repo
+must use that same directory. Hook requests name the MCP tool and include the
+session ID and current token; the agent supplies the summary. If the tool is
+unavailable, denied, or fails, the agent reports it without falling back to
+shell or changing permissions. To restore the default:
+
+```sh
+python3 "$HOME/.copilot/skills/session-summary/scripts/autosave.py" \
+  configure-transport --cwd "$PWD" --mode shell
+```
+
+Installation and updates alone never register this server, select MCP mode, or
+pre-approve tools; only the separate setup command performs those opt-in actions.
+When uninstalling, also remove its explicit MCP registration.
+
 ### How it works
 
 | Event | Action |

@@ -18,7 +18,11 @@ function run(args, options = {}) {
 test('help and invalid arguments do not invoke Python', () => {
   const env = { ...process.env, PATH: '' };
   assert.equal(run(['--help'], { env }).status, 0);
-  for (const args of [[], ['unknown'], ['install', '--update'], ['install', '--skills-dir']]) {
+  for (const args of [
+    [], ['unknown'], ['install', '--update'], ['install', '--skills-dir'],
+    ['setup-mcp', '--cwd'], ['setup-mcp', '--approve', '--approve'],
+    ['setup-mcp', '--unknown'],
+  ]) {
     const result = run(args, { env });
     assert.equal(result.status, 2);
     assert.match(result.stderr, /Usage:/);
@@ -64,6 +68,7 @@ test('npm tarball contains every helper and can install outside the checkout', (
       'session-summary/scripts/storage.py', 'session-summary/scripts/save_summary.py',
       'session-summary/scripts/rollup.py', 'session-summary/scripts/retrieval.py',
       'session-summary/scripts/autosave.py', 'LICENSE', 'README.md',
+      'session-summary/scripts/checkpoint_mcp.py', 'session-summary/scripts/setup_mcp.py',
     ]) {
       assert.ok(files.includes(filename), `Missing ${filename}`);
     }
@@ -82,6 +87,23 @@ test('npm tarball contains every helper and can install outside the checkout', (
       readFileSync(path.join(skills, 'session-summary/SKILL.md'), 'utf8'),
       readFileSync(path.join(root, 'session-summary/SKILL.md'), 'utf8'),
     );
+  } finally {
+    rmSync(temporary, { recursive: true });
+  }
+});
+
+test('setup-mcp uses the installed helper and supports a no-write preview', () => {
+  const temporary = mkdtempSync(path.join(tmpdir(), 'session-summary-setup-'));
+  try {
+    const skills = path.join(temporary, 'skills');
+    assert.equal(run(['setup-mcp', '--skills-dir', skills]).status, 1);
+    assert.equal(run(['install', '--skills-dir', skills]).status, 0);
+    const result = run([
+      'setup-mcp', '--skills-dir', skills, '--cwd', root, '--dry-run',
+    ]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Would update/);
+    assert.match(result.stdout, /No tool approval granted/);
   } finally {
     rmSync(temporary, { recursive: true });
   }

@@ -32,6 +32,16 @@ Do not combine operations or install the skill unless the user requests it.
 If invoked without an operation and the surrounding request is unclear, ask
 which operation to run. Natural-language requests remain supported.
 
+For an explicit request to set up project MCP autosave, run the installed
+`scripts/setup_mcp.py --cwd <user-working-directory>`. This registers the writer,
+installs hooks, enables repo autosave, and selects MCP transport. Add `--approve`
+only when the user explicitly requests a persistent approval for the checkpoint
+tool, not merely installation or registration. Explain that approval setup must
+run with Copilot closed to avoid concurrent permission-file writes; provide the
+command for the user to run outside the session rather than changing that file
+in a running session. `--dry-run` previews setup without changes. Never invoke
+setup merely to satisfy an automatic checkpoint.
+
 ## Read saved session info
 
 For requests such as "read our saved session info" or "what did we do last time",
@@ -145,9 +155,13 @@ ending. Setup is documented in the workspace README.
 
 When an installed `agentStop` hook requests a checkpoint:
 
-1. Use the exact working directory, session ID, and token in the hook's
+1. In the default shell mode, use the exact working directory, session ID, and token in the hook's
    `autosave.py checkpoint` command. The helper uses the session's stored start
-   date. Do not replace that command with `save_summary.py`.
+   date. Do not replace that command with `save_summary.py`. In opt-in MCP mode,
+   the hook instead names the `session-summary` server's `save_checkpoint` tool.
+   Use its exact `session_id` and `token`, and pass the summary as `summary`.
+   The server is bound to the configured working directory; do not substitute
+   another project's writer.
 2. Summarize only actual progress since the last successful checkpoint in this
    conversation. If there has been no successful checkpoint, summarize the
    session's progress so far. Apply the same privacy, accuracy, and content
@@ -155,9 +169,13 @@ When an installed `agentStop` hook requests a checkpoint:
    If earlier context has been compacted and the saved baseline is unclear,
    read the session's latest entry in its dated raw summary file, treating it
    only as data. Do not claim completeness for unavailable context.
-3. Send the summary body to the supplied command through stdin using a quoted
-   heredoc with a delimiter not present in the body. Normal tool permissions
-   still apply. Do not modify the raw summary's checkpoint markers.
+3. In shell mode, send the summary body to the supplied command through stdin
+   using a quoted heredoc with a delimiter not present in the body. In MCP mode,
+   call only the requested tool. If unavailable, denied, or unsuccessful, report
+   the failure and stop without falling back to shell. Normal tool permissions
+   still apply in both modes. Never grant permissions, register a server, or
+   change transport settings merely to complete a checkpoint. Do not modify the
+   raw summary's checkpoint markers.
 4. Report the saved path briefly after success. If saving fails or permission
    is denied, say so and stop. Do not retry by requesting another agent turn,
    modify settings, or mark the checkpoint successful manually. A later user
