@@ -18,9 +18,9 @@ tokens. It cannot enable automation, register itself, or grant approvals.
 Close Copilot for this project, then run from the directory you'll use it in:
 
 ```sh
-python3 "$HOME/.copilot/skills/session-summary/scripts/setup_mcp.py" --approve
+python3 "$HOME/.copilot/skills/remind-me-again/scripts/setup_mcp.py" --approve
 # or, with the npm package
-session-summary-skill setup-mcp --approve
+remind-me-again setup-mcp --approve
 ```
 
 Setup registers the writer in `.mcp.json`, installs repo hooks, enables repo
@@ -34,7 +34,7 @@ rejects conflicting definitions, and is safe to rerun.
   `.github/session-info.json` local; they contain personal paths.
 
 **`--approve` is a separate permission grant.** It saves only approvals for
-`session-summary/get_checkpoint_context` and `session-summary/save_checkpoint`
+`remind-me-again/get_checkpoint_context` and `remind-me-again/save_checkpoint`
 for this repository in Copilot's `permissions-config.json`, keeping all other
 approvals and directory grants. It never approves Python, shell commands, all
 MCP tools, or general filesystem access. Linked worktrees use the main
@@ -55,10 +55,10 @@ the matching approvals from this repo's entry. Uninstall also removes them
 
 ## Manual setup
 
-1. In Copilot, run `/mcp add` with name **session-summary**, type **STDIO**, and command:
+1. In Copilot, run `/mcp add` with name **remind-me-again**, type **STDIO**, and command:
 
    ```sh
-   python3 -B /absolute/path/to/.copilot/skills/session-summary/scripts/checkpoint_mcp.py --cwd /absolute/path/to/project
+   python3 -B /absolute/path/to/.copilot/skills/remind-me-again/scripts/checkpoint_mcp.py --cwd /absolute/path/to/project
    ```
 
 2. Enable only `get_checkpoint_context` and `save_checkpoint`.
@@ -70,8 +70,8 @@ the matching approvals from this repo's entry. Uninstall also removes them
 5. Approve through the CLI's controls, or start with:
 
    ```sh
-   copilot --allow-tool='session-summary(get_checkpoint_context)' \
-     --allow-tool='session-summary(save_checkpoint)'
+   copilot --allow-tool='remind-me-again(get_checkpoint_context)' \
+     --allow-tool='remind-me-again(save_checkpoint)'
    ```
 
    This allows summary writes through those tools only, not arbitrary Python or
@@ -79,7 +79,7 @@ the matching approvals from this repo's entry. Uninstall also removes them
 6. Select MCP transport (this does not enable autosave):
 
    ```sh
-   python3 "$HOME/.copilot/skills/session-summary/scripts/autosave.py" \
+   python3 "$HOME/.copilot/skills/remind-me-again/scripts/autosave.py" \
      configure-transport --cwd "$PWD" --mode mcp
    ```
 

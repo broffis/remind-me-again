@@ -12,8 +12,10 @@ import sys
 import tempfile
 
 
-SKILL_NAME = "session-summary"
-MANIFEST = ".session-summary-install.json"
+SKILL_NAME = "remind-me-again"
+MANIFEST = ".remind-me-again-install.json"
+LEGACY_NAME = "session-summary"
+LEGACY_MANIFEST = ".session-summary-install.json"
 PAYLOAD = [
     "SKILL.md",
     "scripts/autosave.py",
@@ -30,17 +32,17 @@ def fingerprint(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def check_managed_install(destination):
+def check_managed_install(destination, name=SKILL_NAME, manifest_name=MANIFEST):
     """Refuse to remove a symlink, an unknown folder, or locally modified files."""
     if destination.is_symlink():
         raise ValueError("Existing skill is a symbolic link; manage it manually.")
-    manifest_path = destination / MANIFEST
+    manifest_path = destination / manifest_name
     if not manifest_path.is_file() or manifest_path.is_symlink():
         raise ValueError("Existing skill is not a managed installation.")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if (
         not isinstance(manifest, dict)
-        or manifest.get("installer") != SKILL_NAME
+        or manifest.get("installer") != name
         or manifest.get("version") != 1
         or not isinstance(manifest.get("files"), dict)
         or set(manifest["files"]) not in (
@@ -50,7 +52,7 @@ def check_managed_install(destination):
         )
     ):
         raise ValueError("Existing skill has an invalid managed-install manifest.")
-    expected = set(manifest["files"]) | {MANIFEST}
+    expected = set(manifest["files"]) | {manifest_name}
     for path in destination.rglob("*"):
         relative = path.relative_to(destination)
         if path.is_symlink():
@@ -81,7 +83,7 @@ def install(source_root, skills_directory, update=False):
             raise ValueError(f"Download is incomplete: missing {filename}")
     skills_directory.mkdir(parents=True, exist_ok=True)
     # Stage and back up on the same filesystem so renames are atomic.
-    with tempfile.TemporaryDirectory(prefix=".session-summary-", dir=skills_directory) as work:
+    with tempfile.TemporaryDirectory(prefix=".remind-me-again-", dir=skills_directory) as work:
         staging = Path(work) / "new"
         staging.mkdir()
         for filename in PAYLOAD:
@@ -108,16 +110,60 @@ def install(source_root, skills_directory, update=False):
     return destination
 
 
+def load_setup_module():
+    """Load the bundled setup helpers; the caller must pop sys.path afterwards."""
+    scripts = Path(__file__).resolve().parent / SKILL_NAME / "scripts"
+    sys.path.insert(0, str(scripts))
+    spec = importlib.util.spec_from_file_location("remind_me_again_setup", scripts / "setup_mcp.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def migrate_legacy(skills_directory, cwd=None):
+    """Move a managed session-summary install and its recognized setup here.
+
+    The old skill folder is removed only after its setup was migrated, so hooks
+    never point at a missing script. Returns human-readable notes.
+    """
+    legacy = skills_directory / LEGACY_NAME
+    present = legacy.exists() or legacy.is_symlink()
+    if present:
+        try:
+            check_managed_install(legacy, LEGACY_NAME, LEGACY_MANIFEST)
+        except ValueError as error:
+            return [f"Old {LEGACY_NAME} skill and its setup were left unchanged: {error}"]
+    sys.path.insert(0, str(Path(__file__).resolve().parent / SKILL_NAME / "scripts"))
+    try:
+        setup = load_setup_module()
+        changes = setup.plan_migration(
+            Path.cwd() if cwd is None else cwd, skills_directory / SKILL_NAME, legacy
+        )
+        setup.remove_setup(changes, action="Migration")
+    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+        return [f"Old {LEGACY_NAME} skill and its setup were left unchanged: {error}"]
+    finally:
+        sys.path.pop(0)
+    notes = [f"Migrated to {SKILL_NAME}: {path}" for path, _ in changes]
+    if present:
+        shutil.rmtree(legacy)
+        notes.append(f"Removed old skill: {legacy}")
+    if present or changes:
+        notes.append(
+            "Other projects still configured with the old name keep working only after "
+            "you run `update` from each project. Close Copilot first: migration "
+            "can update its saved permission file."
+        )
+    return notes
+
+
 def uninstall(skills_directory, cwd=None, global_cleanup=False, dry_run=False):
     destination = skills_directory / SKILL_NAME
     if destination.exists() or destination.is_symlink():
         check_managed_install(destination)
-    scripts = Path(__file__).resolve().parent / SKILL_NAME / "scripts"
-    sys.path.insert(0, str(scripts))
+    sys.path.insert(0, str(Path(__file__).resolve().parent / SKILL_NAME / "scripts"))
     try:
-        spec = importlib.util.spec_from_file_location("session_summary_cleanup", scripts / "setup_mcp.py")
-        cleanup = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(cleanup)
+        cleanup = load_setup_module()
         changes = cleanup.plan_removal(
             Path.cwd() if cwd is None else cwd, destination, global_cleanup
         )
@@ -135,7 +181,7 @@ def main():
     action = parser.add_mutually_exclusive_group()
     action.add_argument("--update", action="store_true", help="Replace an unmodified managed install.")
     action.add_argument("--uninstall", action="store_true", help="Remove an unmodified managed install.")
-    parser.add_argument("--cwd", type=Path, help="Project to clean on uninstall (default: current directory).")
+    parser.add_argument("--cwd", type=Path, help="Project to clean on uninstall or migrate on install/update (default: current directory).")
     parser.add_argument("--global", dest="global_cleanup", action="store_true",
                         help="Also remove this installation's global setup on uninstall.")
     parser.add_argument("--dry-run", action="store_true", help="Preview uninstall without writing.")
@@ -144,8 +190,8 @@ def main():
         help="Installation parent directory (default: ~/.copilot/skills).",
     )
     args = parser.parse_args()
-    if not args.uninstall and (args.global_cleanup or args.dry_run or args.cwd is not None):
-        parser.error("--cwd, --global and --dry-run are uninstall options.")
+    if not args.uninstall and (args.global_cleanup or args.dry_run):
+        parser.error("--global and --dry-run are uninstall options.")
     if sys.version_info < (3, 9) or os.name != "posix":
         parser.exit(1, "Requires Python 3.9+ on macOS or Linux.\n")
     try:
@@ -162,7 +208,9 @@ def main():
         else:
             destination = install(Path(__file__).resolve().parent, directory, args.update)
             print(f"Installed: {destination}")
-            print("In Copilot CLI: /skills reload, then /skills info session-summary")
+            for note in migrate_legacy(directory, args.cwd):
+                print(note)
+            print("In Copilot CLI: /skills reload, then /skills info remind-me-again")
             print("Automation settings were not changed; new installations default to off.")
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"Cannot install/uninstall skill: {error}\n")

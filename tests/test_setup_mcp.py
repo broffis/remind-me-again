@@ -25,9 +25,9 @@ class SetupMCPTests(unittest.TestCase):
         self.assertEqual(len(paths), 3)
         servers = json.loads(mcp_path.read_text())["mcpServers"]
         self.assertEqual(servers["other"], other)
-        self.assertEqual(servers["session-summary"]["tools"],
+        self.assertEqual(servers["remind-me-again"]["tools"],
                          ["get_checkpoint_context", "save_checkpoint"])
-        self.assertEqual(servers["session-summary"]["args"][-1], str(self.cwd))
+        self.assertEqual(servers["remind-me-again"]["args"][-1], str(self.cwd))
         self.assertTrue(autosave.enabled(self.cwd))
         self.assertFalse(autosave.enabled(self.cwd, "autoread"))
         self.assertEqual(autosave.checkpoint_transport(self.cwd), "mcp")
@@ -55,7 +55,7 @@ class SetupMCPTests(unittest.TestCase):
         self.assertFalse((self.repo / ".github").exists())
         self.assertFalse(autosave.copilot_home().exists())
         path = self.repo / ".mcp.json"
-        path.write_text('{"mcpServers":{"session-summary":{"command":"unrelated"}}}')
+        path.write_text('{"mcpServers":{"remind-me-again":{"command":"unrelated"}}}')
         original = path.read_bytes()
         with self.assertRaisesRegex(ValueError, "replace"):
             setup_mcp.setup(self.cwd, approve=True)
@@ -111,11 +111,11 @@ class SetupMCPTests(unittest.TestCase):
         setup_mcp.setup(self.cwd)
         path = self.repo / ".mcp.json"
         config = json.loads(path.read_text())
-        config["mcpServers"]["session-summary"]["tools"] = ["save_checkpoint"]
+        config["mcpServers"]["remind-me-again"]["tools"] = ["save_checkpoint"]
         path.write_text(json.dumps(config))
         setup_mcp.setup(self.cwd)
         self.assertEqual(
-            json.loads(path.read_text())["mcpServers"]["session-summary"]["tools"],
+            json.loads(path.read_text())["mcpServers"]["remind-me-again"]["tools"],
             ["get_checkpoint_context", "save_checkpoint"],
         )
 
@@ -155,9 +155,9 @@ class SetupMCPTests(unittest.TestCase):
         autosave.configure("global", "on", self.cwd)
         setup_mcp.setup(self.cwd)
         global_mcp = autosave.copilot_home() / "mcp-config.json"
-        server = autosave.read_json(self.repo / ".mcp.json")["mcpServers"]["session-summary"]
+        server = autosave.read_json(self.repo / ".mcp.json")["mcpServers"]["remind-me-again"]
         autosave.write_json(global_mcp, {"mcpServers": {
-            "session-summary": server, "other": {"command": "keep"},
+            "remind-me-again": server, "other": {"command": "keep"},
         }})
         setup_mcp.remove_setup(setup_mcp.plan_removal(self.cwd, installation))
         self.assertTrue(global_mcp.exists())

@@ -19,7 +19,7 @@ function execute(results) {
           },
         };
       }
-      return { name: '@broffis/session-summary-skill', version: '0.1.0' };
+      return { name: 'remind-me-again', version: '0.1.0' };
     },
     console: { log() {} },
     process: processStub,
