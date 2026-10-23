@@ -42,6 +42,14 @@ command for the user to run outside the session rather than changing that file
 in a running session. `--dry-run` previews setup without changes. Never invoke
 setup merely to satisfy an automatic checkpoint.
 
+Uninstall removes the installed skill and the current project's recognized
+setup and two saved MCP approvals while preserving summaries and unrelated
+configuration. It must run with Copilot closed; provide the user an external
+`npx @broffis/session-summary-skill@latest uninstall --cwd <directory>` command
+rather than uninstalling in a live session. `--dry-run` previews without changes.
+Add `--global` only when the user explicitly requests global setup removal.
+Other projects' setup remains; the installed skill is shared across projects.
+
 ## Read saved session info
 
 For requests such as "read our saved session info" or "what did we do last time",

@@ -64,14 +64,14 @@ class InstallTests(unittest.TestCase):
             self.assertEqual(script.read_text(), "local changes")
         (destination / installer.MANIFEST).unlink()
         with self.assertRaisesRegex(ValueError, "managed"):
-            installer.uninstall(self.skills)
+            installer.uninstall(self.skills, cwd=self.skills.parent)
 
     def test_uninstall_removes_only_owned_skill_and_preserves_summaries(self):
         destination = installer.install(ROOT, self.skills)
         summaries = self.skills.parent / "session-info"
         summaries.mkdir()
         (summaries / "saved.md").write_text("Keep this.")
-        installer.uninstall(self.skills)
+        installer.uninstall(self.skills, cwd=self.skills.parent)
         self.assertFalse(destination.exists())
         self.assertEqual((summaries / "saved.md").read_text(), "Keep this.")
 
@@ -86,6 +86,36 @@ class InstallTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "symbolic"):
                 action()
         self.assertTrue(destination.is_symlink())
+
+    def test_cli_uninstall_cleans_setup_and_dry_run_preserves_install(self):
+        repo = self.skills.parent / "project"
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        destination = installer.install(ROOT, self.skills)
+        environment = dict(os.environ, HOME=str(self.skills.parent),
+                           COPILOT_HOME=str(self.skills.parent / ".copilot"),
+                           PYTHONDONTWRITEBYTECODE="1")
+        subprocess.run(
+            [sys.executable, "-B", str(destination / "scripts/setup_mcp.py"),
+             "--cwd", str(repo), "--approve"],
+            env=environment, check=True, capture_output=True, text=True,
+        )
+        command = [
+            sys.executable, "-B", str(ROOT / "install.py"), "--uninstall",
+            "--skills-dir", str(self.skills), "--cwd", str(repo),
+        ]
+        mcp = (repo / ".mcp.json").read_bytes()
+        subprocess.run(command + ["--dry-run"], env=environment, check=True, capture_output=True)
+        self.assertTrue(destination.is_dir())
+        self.assertEqual((repo / ".mcp.json").read_bytes(), mcp)
+        subprocess.run(command, env=environment, check=True, capture_output=True)
+        self.assertFalse(destination.exists())
+        self.assertFalse((repo / ".mcp.json").exists())
+        self.assertFalse((repo / ".github/hooks/session-info.json").exists())
+        self.assertFalse((repo / ".github/session-info.json").exists())
+        permissions = json.loads(
+            (self.skills.parent / ".copilot/permissions-config.json").read_text()
+        )
+        self.assertEqual(permissions["locations"][str(repo.resolve())]["tool_approvals"], [])
 
     def test_downloaded_archive_installs_updates_and_uninstalls_via_cli(self):
         output = self.skills.parent / "release"
@@ -119,7 +149,7 @@ class InstallTests(unittest.TestCase):
                 check=True, capture_output=True, text=True,
             )
         subprocess.run(
-            command + ["--uninstall"], env=environment, check=True,
+            command + ["--uninstall", "--cwd", str(self.skills.parent)], env=environment, check=True,
             capture_output=True, text=True,
         )
         self.assertFalse((self.skills / "session-summary").exists())

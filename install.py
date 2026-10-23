@@ -2,10 +2,12 @@
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import tempfile
 
@@ -106,10 +108,26 @@ def install(source_root, skills_directory, update=False):
     return destination
 
 
-def uninstall(skills_directory):
+def uninstall(skills_directory, cwd=None, global_cleanup=False, dry_run=False):
     destination = skills_directory / SKILL_NAME
-    check_managed_install(destination)
-    shutil.rmtree(destination)
+    if destination.exists() or destination.is_symlink():
+        check_managed_install(destination)
+    scripts = Path(__file__).resolve().parent / SKILL_NAME / "scripts"
+    sys.path.insert(0, str(scripts))
+    try:
+        spec = importlib.util.spec_from_file_location("session_summary_cleanup", scripts / "setup_mcp.py")
+        cleanup = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cleanup)
+        changes = cleanup.plan_removal(
+            Path.cwd() if cwd is None else cwd, destination, global_cleanup
+        )
+        if not dry_run:
+            cleanup.remove_setup(changes)
+            if destination.exists():
+                shutil.rmtree(destination)
+        return [str(path) for path, _ in changes] + [str(destination)]
+    finally:
+        sys.path.pop(0)
 
 
 def main():
@@ -117,25 +135,36 @@ def main():
     action = parser.add_mutually_exclusive_group()
     action.add_argument("--update", action="store_true", help="Replace an unmodified managed install.")
     action.add_argument("--uninstall", action="store_true", help="Remove an unmodified managed install.")
+    parser.add_argument("--cwd", type=Path, help="Project to clean on uninstall (default: current directory).")
+    parser.add_argument("--global", dest="global_cleanup", action="store_true",
+                        help="Also remove this installation's global setup on uninstall.")
+    parser.add_argument("--dry-run", action="store_true", help="Preview uninstall without writing.")
     parser.add_argument(
         "--skills-dir", type=Path, default=Path.home() / ".copilot/skills",
         help="Installation parent directory (default: ~/.copilot/skills).",
     )
     args = parser.parse_args()
+    if not args.uninstall and (args.global_cleanup or args.dry_run or args.cwd is not None):
+        parser.error("--cwd, --global and --dry-run are uninstall options.")
     if sys.version_info < (3, 9) or os.name != "posix":
         parser.exit(1, "Requires Python 3.9+ on macOS or Linux.\n")
     try:
         directory = args.skills_dir.expanduser().absolute()
         if args.uninstall:
-            uninstall(directory)
-            print("Skill removed. Saved summaries and hook settings were not removed.")
-            print("Remove any session-info hook registrations before restarting Copilot.")
+            paths = uninstall(directory, args.cwd, args.global_cleanup, args.dry_run)
+            print(("Would remove/update" if args.dry_run else "Removed/updated") +
+                  ":\n" + "\n".join(paths))
+            print("Saved summaries, rollups, and unrelated configuration were preserved.")
+            print("Other projects' setup/approvals were not removed. The skill installation is shared.")
+            if not args.global_cleanup:
+                print("Global setup was retained; use --global to remove it explicitly.")
+            print("Run uninstall with Copilot closed to avoid permission-file write conflicts.")
         else:
             destination = install(Path(__file__).resolve().parent, directory, args.update)
             print(f"Installed: {destination}")
             print("In Copilot CLI: /skills reload, then /skills info session-summary")
             print("Automation settings were not changed; new installations default to off.")
-    except (OSError, ValueError) as error:
+    except (OSError, ValueError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"Cannot install/uninstall skill: {error}\n")
 
 

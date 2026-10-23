@@ -47,7 +47,7 @@ test('install, explicit update, and uninstall share the Python installer', () =>
     assert.equal(duplicate.status, 1);
     assert.match(duplicate.stderr, /already exists/);
     assert.equal(run(['update', ...args]).status, 0);
-    assert.equal(run(['uninstall', ...args]).status, 0);
+    assert.equal(run(['uninstall', ...args, '--cwd', temporary]).status, 0);
     assert.equal(existsSync(destination), false);
   } finally {
     rmSync(temporary, { recursive: true });
@@ -98,12 +98,30 @@ test('setup-mcp uses the installed helper and supports a no-write preview', () =
     const skills = path.join(temporary, 'skills');
     assert.equal(run(['setup-mcp', '--skills-dir', skills]).status, 1);
     assert.equal(run(['install', '--skills-dir', skills]).status, 0);
+    const repo = path.join(temporary, 'project');
+    assert.equal(spawnSync('git', ['init', '-q', repo]).status, 0);
     const result = run([
-      'setup-mcp', '--skills-dir', skills, '--cwd', root, '--dry-run',
-    ]);
+      'setup-mcp', '--skills-dir', skills, '--cwd', repo, '--dry-run',
+    ], { env: { ...process.env, HOME: temporary, COPILOT_HOME: path.join(temporary, '.copilot') } });
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /Would update/);
     assert.match(result.stdout, /No tool approval granted/);
+  } finally {
+    rmSync(temporary, { recursive: true });
+  }
+});
+
+test('uninstall accepts cleanup preview options and does not delete the skill', () => {
+  const temporary = mkdtempSync(path.join(tmpdir(), 'session-summary-uninstall-'));
+  try {
+    const skills = path.join(temporary, 'skills');
+    assert.equal(run(['install', '--skills-dir', skills]).status, 0);
+    const result = run([
+      'uninstall', '--skills-dir', skills, '--cwd', temporary, '--global', '--dry-run',
+    ], { env: { ...process.env, HOME: temporary, COPILOT_HOME: path.join(temporary, '.copilot') } });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Would remove\/update/);
+    assert.ok(existsSync(path.join(skills, 'session-summary/SKILL.md')));
   } finally {
     rmSync(temporary, { recursive: true });
   }
