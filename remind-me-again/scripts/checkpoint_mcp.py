@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-from autosave import checkpoint, checkpoint_context, repository
+from autosave import checkpoint, checkpoint_context, configuration_status, repository
 from storage import project_directory
 
 
@@ -44,12 +44,32 @@ CONTEXT_TOOL = {
     },
     "annotations": {"readOnlyHint": True},
 }
+SETTINGS_TOOL = {
+    "name": "get_settings",
+    "description": (
+        "Read automation settings and MCP configuration for this server's configured "
+        "project without executing commands or changing files. Returns configured "
+        "and effective autosave/autoread values, sources, transport and tool registrations, "
+        "not runtime health or approvals. Accepts no directory overrides."
+    ),
+    "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": False,
+    },
+    "annotations": {"readOnlyHint": True},
+}
 
 
 def call_tool(cwd, params):
     if not isinstance(params, dict):
         raise ValueError("Unknown checkpoint tool.")
-    arguments = params.get("arguments")
+    arguments = params.get("arguments", {})
+    if params.get("name") == SETTINGS_TOOL["name"]:
+        if not isinstance(arguments, dict) or arguments:
+            raise ValueError("get_settings accepts no arguments.")
+        status = configuration_status(cwd)
+        return {"content": [{"type": "text", "text": json.dumps(status)}]}
     if params.get("name") == CONTEXT_TOOL["name"]:
         if (
             not isinstance(arguments, dict) or set(arguments) != {"session_id"}
@@ -102,14 +122,18 @@ def respond(message, cwd, initialized):
     elif not initialized:
         response["error"] = {"code": -32000, "message": "Initialize the server first."}
     elif method == "tools/list":
-        response["result"] = {"tools": [CONTEXT_TOOL, TOOL]}
+        response["result"] = {"tools": [CONTEXT_TOOL, TOOL, SETTINGS_TOOL]}
     elif method == "tools/call":
         try:
             response["result"] = call_tool(cwd, params)
         except (OSError, ValueError, KeyError, TypeError) as error:
+            operation = (
+                "Settings lookup" if isinstance(params, dict)
+                and params.get("name") == SETTINGS_TOOL["name"] else "Checkpoint"
+            )
             response["result"] = {
                 "isError": True,
-                "content": [{"type": "text", "text": f"Checkpoint failed: {error}"}],
+                "content": [{"type": "text", "text": f"{operation} failed: {error}"}],
             }
     else:
         response["error"] = {"code": -32601, "message": "Method not found."}

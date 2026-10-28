@@ -11,7 +11,8 @@
       ],
       "tools": [
         "get_checkpoint_context",
-        "save_checkpoint"
+        "save_checkpoint",
+        "get_settings"
       ],
       "env": {
         "COPILOT_HOME": "/Users/abf7934/.copilot"
