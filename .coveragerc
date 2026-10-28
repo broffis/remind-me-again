@@ -1,0 +1,14 @@
+[run]
+source =
+    .
+omit =
+    tests/*
+    node_modules/*
+    .venv/*
+patch = subprocess
+parallel = true
+
+[report]
+precision = 2
+show_missing = true
+fail_under = 90.01

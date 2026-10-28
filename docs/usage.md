@@ -12,10 +12,19 @@ After installing and running `/skills reload`:
 | `Use the /remind-me-again skill: read` | Retrieve the latest rollup plus uncovered raw progress. |
 | `Use the /remind-me-again skill: review --all` | Retrieve every rollup plus uncovered raw progress and synthesize a project-wide review. |
 | `Use the /remind-me-again skill: rollup` | Create or refresh today's incremental rollup. |
+| `Use the /remind-me-again skill: configure` | Show current settings and guide you through a change. |
 | `Use the /remind-me-again skill: configure --feature autoread --scope repo --mode on` | Enable autoread for the current repository. |
 
 For `configure`, choose `--feature autosave|autoread`, `--scope repo|global`,
-and `--mode on|off|inherit`. Each feature defaults to off.
+and `--mode on|off|inherit`, or omit any of them to be asked for the missing
+choices. Bare `configure` shows both features' global/repo settings and
+effective values, then asks for feature, scope, and mode. Cancelling leaves
+settings unchanged. Fully specified requests apply directly. Each feature
+defaults to off; repo overrides win over global settings.
+
+The guided flow changes one feature at one scope. It explains inheritance and
+the effect of global changes before applying them, then reports the resulting
+effective setting. It does not configure MCP or grant tool permissions.
 
 These are skill invocation prompts, not built-in slash commands. Saving and
 review synthesis need the agent; the Python helpers only handle files.

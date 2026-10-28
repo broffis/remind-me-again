@@ -23,14 +23,52 @@ argument parser.
 | `read` | Follow Read saved session info with default retrieval. |
 | `review --all` | Follow Read saved session info with `retrieval.py --all`, then synthesize all retrieved history. |
 | `rollup` | Follow Create or refresh a rollup. |
-| `configure --feature <autosave\|autoread> --scope <repo\|global> --mode <on\|off\|inherit>` | Run `scripts/autosave.py configure` with those exact options and the user's current working directory via `--cwd`. |
+| `configure [--feature <autosave\|autoread>] [--scope <repo\|global>] [--mode <on\|off\|inherit>]` | Follow Configure settings below; guide the user through missing choices. |
 
 For example, "Use the /remind-me-again skill: read" selects the read operation.
-For configuration, require explicit feature, scope, and mode; ask for any
-missing values rather than guessing whether to enable global automation.
 Do not combine operations or install the skill unless the user requests it.
 If invoked without an operation and the surrounding request is unclear, ask
 which operation to run. Natural-language requests remain supported.
+
+## Configure settings
+
+This is a conversational skill operation, not an npm command or terminal wizard.
+Use helpers relative to this installed skill's base directory and always pass
+the user's working directory via `--cwd`.
+
+If feature, scope, and mode are all explicitly supplied, run
+`scripts/autosave.py configure` with those exact values directly. Otherwise:
+
+1. Run `python3 scripts/autosave.py status --cwd <directory>`. Show autosave
+   (saving after user turns) and autoread (loading history at start/resume)
+   in a small table with global mode, repo mode, effective on/off, and source.
+   `inherit` means no explicit setting; `repo: null` means no Git repository.
+   Stop and report status errors rather than guessing or overwriting invalid settings.
+2. Use the question tool to ask for each missing choice in order, preserving
+   supplied arguments. Do not silently use the Python helper's default feature.
+   Ask which feature: autosave or autoread. Then ask scope: this project (`repo`)
+   or all projects (`global`). Explain that repo overrides win over global
+   settings. Outside a Git repository, offer only global scope; if repo was
+   supplied, report that it requires a Git repository and stop.
+3. Ask the missing mode: on, off, or inherit. Explain the resulting behavior
+   before the user chooses: repo inherit uses the global value (off if unset);
+   global inherit removes the global default, so projects without overrides
+   become off. For global changes, show any current repo override and explain
+   that it stays unchanged and may keep this project's effective value unchanged.
+   If mode was already supplied, include this explanation in the last missing
+   choice's question. Do not preselect enabling automation or global scope.
+4. Only after all three values have been explicitly supplied or selected, run
+   `python3 scripts/autosave.py configure --feature <feature> --scope <scope>
+   --mode <mode> --cwd <directory>`. Cancellation, a declined question, or an
+   unavailable question tool must leave settings unchanged; never substitute
+   defaults. Unsupported values must be clarified before writing.
+
+After a successful configure, rerun status and report the changed setting,
+effective value and source, and that Copilot must restart to load new hooks.
+Report failures explicitly, including a failed status refresh after a successful
+write. Change only the selected feature/scope. Do not register MCP, change
+transport, grant approvals, or initialize session state as part of this flow;
+those remain separate operations.
 
 For an explicit request to set up project MCP autosave, run the installed
 `scripts/setup_mcp.py --cwd <user-working-directory>`. This registers the writer,

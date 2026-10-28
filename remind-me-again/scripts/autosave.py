@@ -98,6 +98,40 @@ def enabled(cwd, feature="autosave"):
     return settings(copilot_home() / "session-info-settings.json").get(feature, False)
 
 
+def configuration_status(cwd):
+    """Describe configured modes and effective values without writing files."""
+    root = repository(cwd)
+    global_path = copilot_home() / "session-info-settings.json"
+    repo_path = root / ".github/session-info.json" if root is not None else None
+    global_settings = settings(global_path)
+    repo_settings = settings(repo_path) if repo_path is not None else {}
+
+    def mode(value, feature):
+        if feature not in value:
+            return "inherit"
+        return "on" if value[feature] else "off"
+
+    return {
+        "repo": str(root) if root is not None else None,
+        "paths": {
+            "global": str(global_path),
+            "repo": str(repo_path) if repo_path is not None else None,
+        },
+        "features": {
+            feature: {
+                "global": mode(global_settings, feature),
+                "repo": mode(repo_settings, feature) if root is not None else None,
+                "effective": repo_settings.get(feature, global_settings.get(feature, False)),
+                "source": (
+                    "repo" if feature in repo_settings
+                    else "global" if feature in global_settings else "default"
+                ),
+            }
+            for feature in FEATURES
+        },
+    }
+
+
 def configuration_paths(scope, cwd):
     if scope == "global":
         base = copilot_home()
@@ -435,6 +469,8 @@ def checkpoint_context(cwd, session_id):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
+    status = commands.add_parser("status", help="Show configured and effective settings.")
+    status.add_argument("--cwd", default=str(Path.cwd()))
     config = commands.add_parser("configure")
     config.add_argument("--scope", choices=("global", "repo"), required=True)
     config.add_argument("--mode", choices=("on", "off", "inherit"), required=True)
@@ -455,7 +491,9 @@ def main():
             command.add_argument("--token", required=True)
     args = parser.parse_args()
     try:
-        if args.command == "configure":
+        if args.command == "status":
+            print(json.dumps(configuration_status(args.cwd), indent=2))
+        elif args.command == "configure":
             print(configure(args.scope, args.mode, args.cwd, args.feature))
         elif args.command == "configure-transport":
             print(configure_transport(args.cwd, args.mode))
