@@ -1,6 +1,6 @@
 {
   "name": "remind-me-again",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Install a Copilot skill for local session summaries, rollups, and opt-in context retrieval.",
   "license": "MIT",
   "repository": {

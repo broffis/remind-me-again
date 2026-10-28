@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/broffis/remind-me-again/compare/v0.5.0...v0.6.0) (2026-10-28)
+
+
+### Features
+
+* add read-only MCP settings tool ([#24](https://github.com/broffis/remind-me-again/issues/24)) ([815cc31](https://github.com/broffis/remind-me-again/commit/815cc31353420be8a0b43598b54d9c189bfaf36a))
+
 ## [0.5.0](https://github.com/broffis/remind-me-again/compare/v0.4.0...v0.5.0) (2026-10-28)
 
 
