@@ -20,6 +20,7 @@ test('help and invalid arguments do not invoke Python', () => {
   assert.equal(run(['--help'], { env }).status, 0);
   for (const args of [
     [], ['unknown'], ['install', '--update'], ['install', '--skills-dir'],
+    ['install', '--cwd', '/tmp/project'], ['update', '--cwd', '/tmp/project'],
     ['setup-mcp', '--cwd'], ['setup-mcp', '--approve', '--approve'],
     ['setup-mcp', '--unknown'],
     ['settings', '--approve'], ['settings', '--skills-dir', '/tmp/skills'],

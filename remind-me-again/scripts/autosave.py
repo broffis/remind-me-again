@@ -350,7 +350,7 @@ def request(cwd, session_id, state):
     if checkpoint_transport(cwd) == "mcp":
         return {
             "decision": "block",
-            "reason": f"Session-summary autosave requested\nsession_id: {session_id}",
+            "reason": f"Remind-me-again autosave requested\nsession_id: {session_id}",
         }
     command = shlex.join([
         sys.executable, str(SCRIPT), "checkpoint", "--cwd", str(cwd),
@@ -360,7 +360,7 @@ def request(cwd, session_id, state):
     return {
         "decision": "block",
         "reason": (
-            "Session-summary autosave requested. Follow automatic checkpoint "
+            "Remind-me-again autosave requested. Follow automatic checkpoint "
             f"instructions in {SCRIPT.parent.parent / 'SKILL.md'}.\n"
             f"{action}"
         ),

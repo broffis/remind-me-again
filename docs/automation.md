@@ -130,7 +130,7 @@ the repo opt-in but keep separate storage.
   not depend on the agent having runtime session metadata. See
   [MCP checkpoint behavior](mcp-setup.md#how-mcp-checkpoints-behave) for fallback
   and mismatch handling.
-- After a successful save the agent says "Session-summary autosave executed."
+- After a successful save the agent says "Remind-me-again autosave executed."
   Failures are reported instead.
 
 Costs and limits:

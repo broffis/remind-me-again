@@ -107,17 +107,19 @@ class SetupMCPTests(unittest.TestCase):
         self.assertFalse((self.repo / ".mcp.json").exists())
         self.assertEqual(hook.read_text(), '{"unrelated":true}')
 
-    def test_setup_upgrades_identical_save_only_registration(self):
+    def test_setup_refuses_incomplete_tool_registration_without_changes(self):
         setup_mcp.setup(self.cwd)
         path = self.repo / ".mcp.json"
         config = json.loads(path.read_text())
         config["mcpServers"]["remind-me-again"]["tools"] = ["save_checkpoint"]
         path.write_text(json.dumps(config))
-        setup_mcp.setup(self.cwd)
-        self.assertEqual(
-            json.loads(path.read_text())["mcpServers"]["remind-me-again"]["tools"],
-            ["get_checkpoint_context", "save_checkpoint"],
-        )
+        original = path.read_bytes()
+        with self.assertRaisesRegex(ValueError, "replace"):
+            setup_mcp.setup(self.cwd)
+        self.assertEqual(path.read_bytes(), original)
+        with self.assertRaisesRegex(ValueError, "unrecognized"):
+            setup_mcp.plan_removal(self.cwd, Path(setup_mcp.__file__).resolve().parents[1])
+        self.assertEqual(path.read_bytes(), original)
 
     def test_removal_preserves_unrelated_entries_and_other_project_permissions(self):
         setup_mcp.setup(self.cwd, approve=True)

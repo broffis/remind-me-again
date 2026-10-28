@@ -3,14 +3,13 @@
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
-const usage = `Usage: remind-me-again <install|update|uninstall> [--cwd <directory>] [--skills-dir <directory>]
+const usage = `Usage: remind-me-again <install|update> [--skills-dir <directory>]
        remind-me-again uninstall [--cwd <directory>] [--global] [--dry-run] [--skills-dir <directory>]
        remind-me-again setup-mcp [--cwd <directory>] [--skills-dir <directory>] [--approve] [--dry-run]
        remind-me-again settings [--cwd <directory>]
 
 Installs the bundled Copilot skill using Python 3.9+ on macOS or Linux.
-Install/update never change automation settings. They also migrate a managed
-legacy session-summary install and its recognized setup (current project and global).
+Install/update never change automation settings.
 setup-mcp explicitly enables project MCP autosave using the installed skill.
 --approve saves only this repository's checkpoint lookup/save permissions; close Copilot first.
 Uninstall removes current project setup/approvals; --global also removes global setup.
@@ -45,7 +44,9 @@ function main(args) {
         : action === 'uninstall' ? ['--global', '--dry-run'] : [];
       if (flags.includes(option)) {
         setupOptions.push(option);
-      } else if ((settings ? ['--cwd'] : ['--cwd', '--skills-dir']).includes(option)
+      } else if ((settings ? ['--cwd']
+        : setup || action === 'uninstall' ? ['--cwd', '--skills-dir']
+          : ['--skills-dir']).includes(option)
         && options[i + 1] && !options[i + 1].startsWith('-')) {
         const value = options[++i];
         if (option === '--skills-dir') {

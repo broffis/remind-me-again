@@ -1,6 +1,5 @@
 import importlib.util
 import hashlib
-import shutil
 import json
 import os
 import subprocess
@@ -40,7 +39,7 @@ class InstallTests(unittest.TestCase):
             installer.install(ROOT, self.skills)
         self.assertEqual(installer.install(ROOT, self.skills, update=True), destination)
 
-    def test_update_accepts_previous_payload_without_mcp_writer(self):
+    def test_update_rejects_incomplete_manifest_without_modifying_install(self):
         destination = installer.install(ROOT, self.skills)
         (destination / "scripts/checkpoint_mcp.py").unlink()
         (destination / "scripts/setup_mcp.py").unlink()
@@ -49,8 +48,11 @@ class InstallTests(unittest.TestCase):
         del manifest["files"]["scripts/checkpoint_mcp.py"]
         del manifest["files"]["scripts/setup_mcp.py"]
         manifest_path.write_text(json.dumps(manifest))
-        installer.install(ROOT, self.skills, update=True)
-        self.assertTrue((destination / "scripts/checkpoint_mcp.py").is_file())
+        original = manifest_path.read_bytes()
+        with self.assertRaisesRegex(ValueError, "invalid managed-install manifest"):
+            installer.install(ROOT, self.skills, update=True)
+        self.assertFalse((destination / "scripts/checkpoint_mcp.py").exists())
+        self.assertEqual(manifest_path.read_bytes(), original)
 
     def test_update_and_uninstall_refuse_modified_or_unowned_install(self):
         destination = installer.install(ROOT, self.skills)
@@ -118,12 +120,11 @@ class InstallTests(unittest.TestCase):
         )
         self.assertEqual(permissions["locations"][str(repo.resolve())]["tool_approvals"], [])
 
-    def legacy_setup(self):
-        """Create a project configured the way the old session-summary skill did."""
+    def test_cli_update_preserves_project_and_global_configuration(self):
         repo = self.skills.parent / "project"
         subprocess.run(["git", "init", "-q", str(repo)], check=True)
         destination = installer.install(ROOT, self.skills)
-        self.environment = dict(
+        environment = dict(
             os.environ, HOME=str(self.skills.parent),
             COPILOT_HOME=str(self.skills.parent / ".copilot"),
             PYTHONDONTWRITEBYTECODE="1",
@@ -131,73 +132,21 @@ class InstallTests(unittest.TestCase):
         subprocess.run(
             [sys.executable, "-B", str(destination / "scripts/setup_mcp.py"),
              "--cwd", str(repo), "--approve"],
-            env=self.environment, check=True, capture_output=True,
+            env=environment, check=True, capture_output=True,
         )
-        legacy = self.skills / "session-summary"
-        shutil.copytree(destination, legacy)
-        (legacy / installer.MANIFEST).rename(legacy / installer.LEGACY_MANIFEST)
-        manifest_path = legacy / installer.LEGACY_MANIFEST
-        manifest = json.loads(manifest_path.read_text())
-        manifest["installer"] = "session-summary"
-        manifest_path.write_text(json.dumps(manifest))
-        for path in (
+        paths = (
             repo / ".mcp.json", repo / ".github/hooks/session-info.json",
+            repo / ".github/session-info.json",
             self.skills.parent / ".copilot/permissions-config.json",
-        ):
-            path.write_text(
-                path.read_text().replace("/skills/remind-me-again/", "/skills/session-summary/")
-                .replace('"remind-me-again"', '"session-summary"')
-            )
-        return repo, legacy
-
-    def update(self, repo):
-        return subprocess.run(
+        )
+        before = {path: path.read_bytes() for path in paths}
+        subprocess.run(
             [sys.executable, "-B", str(ROOT / "install.py"), "--update",
-             "--skills-dir", str(self.skills), "--cwd", str(repo)],
-            env=self.environment, check=True, capture_output=True, text=True,
+             "--skills-dir", str(self.skills)],
+            cwd=repo, env=environment, check=True, capture_output=True, text=True,
         )
-
-    def test_update_migrates_legacy_install_setup_and_approvals(self):
-        repo, legacy = self.legacy_setup()
-        result = self.update(repo)
-        self.assertFalse(legacy.exists())
-        self.assertIn("Removed old skill", result.stdout)
-        script = str((self.skills / "remind-me-again/scripts").resolve())
-        servers = json.loads((repo / ".mcp.json").read_text())["mcpServers"]
-        self.assertEqual(list(servers), ["remind-me-again"])
-        self.assertEqual(servers["remind-me-again"]["args"][1], f"{script}/checkpoint_mcp.py")
-        self.assertEqual(servers["remind-me-again"]["args"][-1], str(repo.resolve()))
-        hooks = json.loads((repo / ".github/hooks/session-info.json").read_text())["hooks"]
-        self.assertTrue(all(
-            entries[0]["args"][0] == f"{script}/autosave.py" for entries in hooks.values()
-        ))
-        permissions = json.loads(
-            (self.skills.parent / ".copilot/permissions-config.json").read_text()
-        )
-        approvals = permissions["locations"][str(repo.resolve())]["tool_approvals"]
-        self.assertEqual({item["serverName"] for item in approvals}, {"remind-me-again"})
-        self.assertEqual(len(approvals), 2)
-        self.assertNotIn("Migrated", self.update(repo).stdout)
-
-    def test_modified_legacy_install_leaves_everything_unchanged(self):
-        repo, legacy = self.legacy_setup()
-        (legacy / "scripts/storage.py").write_text("local changes")
-        mcp = (repo / ".mcp.json").read_bytes()
-        result = self.update(repo)
-        self.assertIn("left unchanged", result.stdout)
-        self.assertTrue(legacy.is_dir())
-        self.assertEqual((repo / ".mcp.json").read_bytes(), mcp)
-
-    def test_unrecognized_legacy_setup_keeps_old_skill_for_working_hooks(self):
-        repo, legacy = self.legacy_setup()
-        mcp_path = repo / ".mcp.json"
-        servers = json.loads(mcp_path.read_text())
-        servers["mcpServers"]["session-summary"]["command"] = 5
-        mcp_path.write_text(json.dumps(servers))
-        result = self.update(repo)
-        self.assertIn("left unchanged", result.stdout)
-        self.assertTrue(legacy.is_dir())
-        self.assertIn("session-summary/scripts", (repo / ".github/hooks/session-info.json").read_text())
+        for path, content in before.items():
+            self.assertEqual(path.read_bytes(), content)
 
     def test_downloaded_archive_installs_updates_and_uninstalls_via_cli(self):
         output = self.skills.parent / "release"
