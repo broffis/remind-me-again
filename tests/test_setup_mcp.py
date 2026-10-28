@@ -26,7 +26,7 @@ class SetupMCPTests(unittest.TestCase):
         servers = json.loads(mcp_path.read_text())["mcpServers"]
         self.assertEqual(servers["other"], other)
         self.assertEqual(servers["remind-me-again"]["tools"],
-                         ["get_checkpoint_context", "save_checkpoint"])
+                         ["get_checkpoint_context", "save_checkpoint", "get_settings"])
         self.assertEqual(servers["remind-me-again"]["args"][-1], str(self.cwd))
         self.assertTrue(autosave.enabled(self.cwd))
         self.assertFalse(autosave.enabled(self.cwd, "autoread"))
@@ -45,7 +45,8 @@ class SetupMCPTests(unittest.TestCase):
         setup_mcp.setup(self.cwd, approve=True)
         locations = json.loads(permission_path.read_text())["locations"]
         self.assertEqual(locations[str(self.repo)]["tool_approvals"],
-                         [other, setup_mcp.APPROVAL, setup_mcp.CONTEXT_APPROVAL])
+                         [other, setup_mcp.APPROVAL, setup_mcp.CONTEXT_APPROVAL,
+                          setup_mcp.SETTINGS_APPROVAL])
         self.assertEqual(locations[str(self.repo)]["allowed_directories"], [str(self.home)])
         self.assertEqual(locations["/other/project"], {"tool_approvals": [{"kind": "read"}]})
 
@@ -120,6 +121,34 @@ class SetupMCPTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unrecognized"):
             setup_mcp.plan_removal(self.cwd, Path(setup_mcp.__file__).resolve().parents[1])
         self.assertEqual(path.read_bytes(), original)
+
+    def test_setup_upgrades_only_exact_previous_registration(self):
+        setup_mcp.setup(self.cwd)
+        path = self.repo / ".mcp.json"
+        previous = json.loads(path.read_text())
+        previous["mcpServers"]["remind-me-again"]["tools"] = list(setup_mcp.CHECKPOINT_TOOLS)
+        autosave.write_json(path, previous)
+        setup_mcp.setup(self.cwd)
+        self.assertEqual(autosave.read_json(path)["mcpServers"]["remind-me-again"]["tools"],
+                         setup_mcp.TOOLS)
+
+        previous["mcpServers"]["remind-me-again"]["args"][-1] = str(self.repo)
+        autosave.write_json(path, previous)
+        original = path.read_bytes()
+        with self.assertRaisesRegex(ValueError, "replace"):
+            setup_mcp.setup(self.cwd)
+        self.assertEqual(path.read_bytes(), original)
+
+    def test_removal_recognizes_previous_registration(self):
+        setup_mcp.setup(self.cwd)
+        path = self.repo / ".mcp.json"
+        previous = autosave.read_json(path)
+        previous["mcpServers"]["remind-me-again"]["tools"] = list(setup_mcp.CHECKPOINT_TOOLS)
+        autosave.write_json(path, previous)
+        setup_mcp.remove_setup(setup_mcp.plan_removal(
+            self.cwd, Path(setup_mcp.__file__).resolve().parents[1]
+        ))
+        self.assertFalse(path.exists())
 
     def test_removal_preserves_unrelated_entries_and_other_project_permissions(self):
         setup_mcp.setup(self.cwd, approve=True)

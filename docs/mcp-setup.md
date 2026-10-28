@@ -4,10 +4,12 @@ Back to the [README](../README.md). This is an optional part of
 [autosave](automation.md). Shell checkpoint commands remain the default.
 
 `scripts/checkpoint_mcp.py` is a local stdio MCP server (no dependencies, no
-network listener) with two tools:
+network listener) with three tools:
 
 - `get_checkpoint_context(session_id)`: read-only lookup of that session's pending checkpoint.
 - `save_checkpoint(session_id, token, summary)`: reuses the normal checkpoint writer.
+- `get_settings()`: reads automation and MCP configuration without running shell
+  commands or changing files; works even with autosave disabled and no session state.
 
 It accepts no commands, working-directory overrides, or output paths, and can
 only write for its configured directory, subject to autosave opt-in and current
@@ -34,7 +36,8 @@ rejects conflicting definitions, and is safe to rerun.
   `.github/session-info.json` local; they contain personal paths.
 
 **`--approve` is a separate permission grant.** It saves only approvals for
-`remind-me-again/get_checkpoint_context` and `remind-me-again/save_checkpoint`
+`remind-me-again/get_checkpoint_context`, `remind-me-again/save_checkpoint`,
+and `remind-me-again/get_settings`
 for this repository in Copilot's `permissions-config.json`, keeping all other
 approvals and directory grants. It never approves Python, shell commands, all
 MCP tools, or general filesystem access. Linked worktrees use the main
@@ -61,7 +64,7 @@ the matching approvals from this repo's entry. Uninstall also removes them
    python3 -B /absolute/path/to/.copilot/skills/remind-me-again/scripts/checkpoint_mcp.py --cwd /absolute/path/to/project
    ```
 
-2. Enable only `get_checkpoint_context` and `save_checkpoint`.
+2. Enable only `get_checkpoint_context`, `save_checkpoint`, and `get_settings`.
 3. Use the exact working directory of your Copilot session, including any
    subdirectory (storage is mapped by working directory, not Git root). The
    server serves only that directory; don't reuse it for other projects.
@@ -71,10 +74,11 @@ the matching approvals from this repo's entry. Uninstall also removes them
 
    ```sh
    copilot --allow-tool='remind-me-again(get_checkpoint_context)' \
-     --allow-tool='remind-me-again(save_checkpoint)'
+     --allow-tool='remind-me-again(save_checkpoint)' \
+     --allow-tool='remind-me-again(get_settings)'
    ```
 
-   This allows summary writes through those tools only, not arbitrary Python or
+   This allows checkpoint operations and settings reads only, not arbitrary Python or
    shell. Approve only servers you trust.
 6. Select MCP transport (this does not enable autosave):
 
@@ -101,10 +105,13 @@ To restore the default, use `--mode shell`. The choice is stored per repo as
   in tool details. Neither is a secret or authentication.
 - If a tool is unavailable, denied, or fails, the agent reports it without
   falling back to shell or changing permissions.
-- Existing registrations must enable the lookup tool: rerun setup (Copilot
-  closed if using `--approve`) or add `get_checkpoint_context` via `/mcp`.
-  Setup rejects conflicting registrations rather than upgrading them.
-  Reload the server and skill afterward.
+- Existing two-tool registrations can add settings by updating the installed
+  skill, then rerunning setup with Copilot closed if using `--approve`.
+  Setup adds `get_settings` only when the previous registration otherwise matches
+  exactly; conflicting registrations are rejected. Reload the server and skill
+  afterward. `/remind-me-again settings` prefers the MCP tool when available,
+  avoiding shell prompts once its narrow approval is saved. CLI deny rules and
+  organization policies can still require approval or block the call.
 
 Installing or updating never registers the server, selects MCP mode, or
 pre-approves tools. Uninstall cleans recognized project registration; global

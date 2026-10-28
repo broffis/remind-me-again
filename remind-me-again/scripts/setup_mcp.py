@@ -17,6 +17,11 @@ APPROVAL = {"kind": "mcp", "serverName": SERVER, "toolName": "save_checkpoint"}
 CONTEXT_APPROVAL = {
     "kind": "mcp", "serverName": SERVER, "toolName": "get_checkpoint_context"
 }
+SETTINGS_APPROVAL = {
+    "kind": "mcp", "serverName": SERVER, "toolName": "get_settings"
+}
+CHECKPOINT_TOOLS = ["get_checkpoint_context", "save_checkpoint"]
+TOOLS = [*CHECKPOINT_TOOLS, "get_settings"]
 
 
 def permission_location(cwd):
@@ -50,7 +55,7 @@ def plan_setup(cwd, approve=False):
     server = {
         "type": "stdio", "command": sys.executable,
         "args": ["-B", str(script), "--cwd", str(cwd)],
-        "tools": ["get_checkpoint_context", "save_checkpoint"],
+        "tools": list(TOOLS),
         "env": {"COPILOT_HOME": str(copilot_home().resolve())},
     }
     mcp_path = root / ".mcp.json"
@@ -60,7 +65,8 @@ def plan_setup(cwd, approve=False):
     servers = mcp.get("mcpServers", mcp)
     if not isinstance(servers, dict):
         raise ValueError(f"Expected an MCP server map: {mcp_path}")
-    if SERVER in servers and servers[SERVER] != server:
+    previous_server = dict(server, tools=CHECKPOINT_TOOLS)
+    if SERVER in servers and servers[SERVER] not in (server, previous_server):
         raise ValueError(f"Refusing to replace an existing {SERVER} server: {mcp_path}")
     servers[SERVER] = server
 
@@ -98,6 +104,8 @@ def plan_setup(cwd, approve=False):
             approvals.append(dict(APPROVAL))
         if CONTEXT_APPROVAL not in approvals:
             approvals.append(dict(CONTEXT_APPROVAL))
+        if SETTINGS_APPROVAL not in approvals:
+            approvals.append(dict(SETTINGS_APPROVAL))
         writes.append((permissions_path, permissions))
     return writes
 
@@ -130,7 +138,7 @@ def owned_server_args(server, installation, path):
         or args[:3] != ["-B", script, "--cwd"]
         or not isinstance(args[3], str)
         or not isinstance(server.get("command"), str)
-        or server.get("tools") != ["get_checkpoint_context", "save_checkpoint"]
+        or server.get("tools") not in (CHECKPOINT_TOOLS, TOOLS)
         or set(server) - {"type", "command", "args", "env", "tools"}
     ):
         raise ValueError(f"Refusing to remove an unrecognized MCP server: {path}")
@@ -229,7 +237,7 @@ def plan_removal(cwd, installation, global_cleanup=False):
             raise ValueError("Saved tool approvals must be an array of objects.")
         remaining = [
             approval for approval in approvals
-            if approval not in (APPROVAL, CONTEXT_APPROVAL)
+            if approval not in (APPROVAL, CONTEXT_APPROVAL, SETTINGS_APPROVAL)
         ]
         if remaining != approvals:
             location["tool_approvals"] = remaining
@@ -262,7 +270,7 @@ def main():
     parser.add_argument("--cwd", type=Path, default=Path.cwd())
     parser.add_argument(
         "--approve", action="store_true",
-        help="Explicitly persist this repository's checkpoint lookup/save approvals. "
+        help="Explicitly persist this repository's checkpoint lookup/save and settings approvals. "
              "Close Copilot sessions first; no shell or Python approval is granted.",
     )
     parser.add_argument("--dry-run", action="store_true", help="Validate without writing.")
@@ -271,9 +279,9 @@ def main():
         paths = setup(args.cwd, args.approve, args.dry_run)
         print(("Would update" if args.dry_run else "Updated") + ":\n" + "\n".join(paths))
         if args.approve:
-            print("Approval scope: this repository's remind-me-again checkpoint lookup/save only.")
+            print("Approval scope: this repository's remind-me-again checkpoint lookup/save and settings only.")
         else:
-            print("No tool approval granted. Approve save_checkpoint in Copilot when prompted.")
+            print("No tool approval granted. Approve the MCP tools in Copilot when prompted.")
         print("Restart Copilot from the configured working directory to load the setup.")
         print("Keep .mcp.json and .github/session-info.json local: they contain personal paths/settings.")
     except (OSError, ValueError, subprocess.CalledProcessError) as error:

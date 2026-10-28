@@ -11,7 +11,7 @@ const usage = `Usage: remind-me-again <install|update> [--skills-dir <directory>
 Installs the bundled Copilot skill using Python 3.9+ on macOS or Linux.
 Install/update never change automation settings.
 setup-mcp explicitly enables project MCP autosave using the installed skill.
---approve saves only this repository's checkpoint lookup/save permissions; close Copilot first.
+--approve saves only this repository's checkpoint lookup/save and settings permissions; close Copilot first.
 Uninstall removes current project setup/approvals; --global also removes global setup.
 Saved summaries are preserved. Close Copilot before uninstalling.
 settings lists automation settings and MCP configuration without changing files.

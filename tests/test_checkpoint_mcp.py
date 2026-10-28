@@ -94,7 +94,7 @@ class CheckpointMCPTests(unittest.TestCase):
         self.assertEqual(responses[0]["result"]["protocolVersion"], "2025-06-18")
         self.assertEqual(
             [tool["name"] for tool in responses[1]["result"]["tools"]],
-            ["get_checkpoint_context", "save_checkpoint"],
+            ["get_checkpoint_context", "save_checkpoint", "get_settings"],
         )
         destination = Path(responses[2]["result"]["content"][0]["text"])
         self.assertIn("MCP progress.", destination.read_text())
@@ -102,6 +102,51 @@ class CheckpointMCPTests(unittest.TestCase):
         self.assertEqual(responses[2]["result"], responses[3]["result"])
         self.assertTrue(responses[4]["result"]["isError"])
         self.assertEqual(autosave.read_state(self.cwd, SESSION)["saved"], token)
+
+    def test_settings_is_read_only_without_autosave_or_session_state(self):
+        self.assertFalse(autosave.copilot_home().exists())
+        result = checkpoint_mcp.call_tool(self.cwd, {"name": "get_settings"})
+        status = json.loads(result["content"][0]["text"])
+        self.assertEqual(status["repo"], str(self.repo))
+        self.assertFalse(status["features"]["autosave"]["effective"])
+        self.assertFalse(autosave.copilot_home().exists())
+        self.assertFalse((self.repo / ".github").exists())
+
+        autosave.configure("global", "on", self.cwd, "autoread")
+        autosave.configure("repo", "off", self.cwd, "autoread")
+        self.enable()
+        autosave.configure_transport(self.cwd, "mcp")
+        files = {
+            path: path.read_bytes() for path in self.home.rglob("*") if path.is_file()
+        }
+        result = checkpoint_mcp.call_tool(
+            self.cwd, {"name": "get_settings", "arguments": {}}
+        )
+        status = json.loads(result["content"][0]["text"])
+        self.assertTrue(status["features"]["autosave"]["effective"])
+        self.assertEqual(status["features"]["autoread"], {
+            "global": "on", "repo": "off", "effective": False, "source": "repo",
+        })
+        self.assertEqual(status["mcp"]["transport"], "mcp")
+        self.assertEqual(files, {
+            path: path.read_bytes() for path in self.home.rglob("*") if path.is_file()
+        })
+
+    def test_settings_rejects_overrides_and_reports_invalid_configuration(self):
+        for arguments in ({"cwd": str(self.home)}, {"mode": "on"}, None, []):
+            with self.subTest(arguments=arguments):
+                with self.assertRaisesRegex(ValueError, "no arguments"):
+                    checkpoint_mcp.call_tool(self.cwd, {
+                        "name": "get_settings", "arguments": arguments,
+                    })
+        self.enable()
+        (self.repo / ".github/session-info.json").write_text('{"version":1,"autosave":"on"}')
+        response, _ = checkpoint_mcp.respond({
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "get_settings", "arguments": {}},
+        }, self.cwd, True)
+        self.assertTrue(response["result"]["isError"])
+        self.assertIn("Settings lookup failed", response["result"]["content"][0]["text"])
 
     def test_mcp_enforces_project_binding_stale_tokens_and_opt_in(self):
         self.enable()

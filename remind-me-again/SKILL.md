@@ -34,7 +34,13 @@ which operation to run. Natural-language requests remain supported.
 ## View settings
 
 For `settings` (including `/remind-me-again settings` when invoked through
-Copilot's skill interface), run the installed helper:
+Copilot's skill interface), prefer `remind-me-again/get_settings` with no
+arguments when that tool is available and its server is bound to the user's
+current working directory. This avoids shell execution and uses the tool's
+normal approval. If the tool is denied or fails, report that error and stop;
+do not fall back to shell or change permissions.
+
+If no matching MCP settings tool is available, run the installed helper:
 
 ```sh
 python3 "/path/to/remind-me-again/scripts/autosave.py" status \
@@ -96,15 +102,15 @@ those remain separate operations.
 For an explicit request to set up project MCP autosave, run the installed
 `scripts/setup_mcp.py --cwd <user-working-directory>`. This registers the writer,
 installs hooks, enables repo autosave, and selects MCP transport. Add `--approve`
-only when the user explicitly requests a persistent approval for the checkpoint
-tool, not merely installation or registration. Explain that approval setup must
-run with Copilot closed to avoid concurrent permission-file writes; provide the
-command for the user to run outside the session rather than changing that file
-in a running session. `--dry-run` previews setup without changes. Never invoke
-setup merely to satisfy an automatic checkpoint.
+only when the user explicitly requests persistent approvals for the checkpoint
+and settings tools, not merely installation or registration. Explain that
+approval setup must run with Copilot closed to avoid concurrent permission-file
+writes; provide the command for the user to run outside the session rather than
+changing that file in a running session. `--dry-run` previews setup without
+changes. Never invoke setup merely to satisfy an automatic checkpoint.
 
 Uninstall removes the installed skill and the current project's recognized
-setup and two saved MCP approvals while preserving summaries and unrelated
+setup and its saved MCP approvals while preserving summaries and unrelated
 configuration. It must run with Copilot closed; provide the user an external
 `npx remind-me-again uninstall --cwd <directory>` command
 rather than uninstalling in a live session. `--dry-run` previews without changes.
