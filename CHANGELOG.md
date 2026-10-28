@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/broffis/remind-me-again/compare/v0.3.0...v0.3.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* harden autosave identity and saved context handling ([#17](https://github.com/broffis/remind-me-again/issues/17)) ([06ea058](https://github.com/broffis/remind-me-again/commit/06ea058be255b051410f6cc890702c0bb8d9a03a))
+
 ## [0.3.0](https://github.com/broffis/session-summary-skill/compare/v0.2.0...v0.3.0) (2026-10-23)
 
 
