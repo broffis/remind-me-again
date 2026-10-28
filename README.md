@@ -57,3 +57,8 @@ Autosave and autoread stay off unless you enable them.
 - [Autoread and autosave](docs/automation.md): opt-in automation, overrides, and hook behavior.
 - [Project-bound MCP writer](docs/mcp-setup.md): optional narrower-permission autosave transport.
 - [Maintainer guide](docs/maintainers.md): scripts, releases, CI, and tests. See also [RELEASE_FLOW.md](RELEASE_FLOW.md).
+
+## Feature TODOs
+
+- [ ] Add CLI commands for viewing and changing settings.
+- [ ] Improve resilience when the runtime session ID is missing, without guessing an ID or saving to the wrong session.
