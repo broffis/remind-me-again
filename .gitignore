@@ -4,3 +4,6 @@ __pycache__/
 dist/
 *.tgz
 node_modules/
+.coverage
+.coverage.*
+coverage/

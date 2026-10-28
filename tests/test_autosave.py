@@ -70,6 +70,74 @@ class AutosaveTests(unittest.TestCase):
         self.enable()
         self.assertTrue(autosave.enabled(self.cwd))
 
+    def test_status_defaults_are_read_only_inside_and_outside_git(self):
+        for cwd, root in ((self.cwd, str(self.repo)), (self.home, None)):
+            with self.subTest(cwd=cwd):
+                result = autosave.configuration_status(cwd)
+                self.assertEqual(result["repo"], root)
+                for feature in autosave.FEATURES:
+                    self.assertEqual(result["features"][feature], {
+                        "global": "inherit",
+                        "repo": "inherit" if root else None,
+                        "effective": False,
+                        "source": "default",
+                    })
+        self.assertFalse((self.home / ".copilot").exists())
+        self.assertFalse((self.repo / ".github").exists())
+
+    def test_status_tracks_overrides_inheritance_and_preserves_files(self):
+        self.enable("global")
+        autosave.configure("repo", "off", self.cwd)
+        autosave.configure("repo", "on", self.cwd, feature="autoread")
+        paths = [
+            self.home / ".copilot/session-info-settings.json",
+            self.repo / ".github/session-info.json",
+        ]
+        before = {path: path.read_bytes() for path in paths}
+        result = autosave.configuration_status(self.cwd)
+        self.assertEqual(result["features"]["autosave"], {
+            "global": "on", "repo": "off", "effective": False, "source": "repo",
+        })
+        self.assertEqual(result["features"]["autoread"], {
+            "global": "inherit", "repo": "on", "effective": True, "source": "repo",
+        })
+        for path, content in before.items():
+            self.assertEqual(path.read_bytes(), content)
+        autosave.configure("repo", "inherit", self.cwd)
+        inherited = autosave.configuration_status(self.cwd)["features"]["autosave"]
+        self.assertEqual(inherited, {
+            "global": "on", "repo": "inherit", "effective": True, "source": "global",
+        })
+        self.assertEqual(inherited["effective"], autosave.enabled(self.cwd))
+        autosave.configure("global", "inherit", self.cwd)
+        self.assertEqual(
+            autosave.configuration_status(self.cwd)["features"]["autosave"]["source"],
+            "default",
+        )
+
+    def test_status_cli_reports_json_and_rejects_invalid_settings_without_writes(self):
+        command = [
+            sys.executable, "-B", str(autosave.SCRIPT), "status", "--cwd", str(self.cwd),
+        ]
+        environment = dict(os.environ, HOME=str(self.home))
+        result = subprocess.run(
+            command, env=environment, text=True, capture_output=True, check=True,
+        )
+        self.assertEqual(json.loads(result.stdout), autosave.configuration_status(self.cwd))
+        self.assertEqual(result.stderr, "")
+        self.assertFalse((self.home / ".copilot").exists())
+        path = self.repo / ".github/session-info.json"
+        path.parent.mkdir()
+        for content in ('{"version":1,"autosave":"yes"}', "invalid json"):
+            path.write_text(content)
+            failed = subprocess.run(
+                command, env=environment, text=True, capture_output=True,
+            )
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertEqual(failed.stdout, "")
+            self.assertIn("Session-info autosave error", failed.stderr)
+            self.assertEqual(path.read_text(), content)
+
     def test_installs_both_scopes_without_overwriting_other_hooks(self):
         other = self.repo / ".github/hooks/other.json"
         other.parent.mkdir(parents=True)

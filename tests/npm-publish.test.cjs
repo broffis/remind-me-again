@@ -4,7 +4,8 @@ const path = require('node:path');
 const { test } = require('node:test');
 const vm = require('node:vm');
 
-const source = readFileSync(path.join(__dirname, '../.github/scripts/publish-npm.cjs'), 'utf8');
+const filename = path.join(__dirname, '../.github/scripts/publish-npm.cjs');
+const source = readFileSync(filename, 'utf8');
 
 function execute(results) {
   const calls = [];
@@ -24,7 +25,7 @@ function execute(results) {
     console: { log() {} },
     process: processStub,
   };
-  vm.runInNewContext(source, context);
+  vm.runInNewContext(source, context, { filename });
   return { calls, exitCode: processStub.exitCode };
 }
 

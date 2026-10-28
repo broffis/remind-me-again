@@ -91,3 +91,20 @@ for verification, versioning, administrator setup, publishing, and recovery.
 ```sh
 python3 -B -m unittest discover -s tests -v
 ```
+
+CI enforces **greater than 90% line coverage separately for Python and
+JavaScript** (90.01% minimum). This does not measure adherence to conversational
+skill instructions; guided choices and cancellation still need live acceptance
+testing. Python coverage includes subprocesses and all project Python sources;
+JavaScript coverage includes the CLI and publication helper, not test files.
+Coverage tools are development-only dependencies.
+
+```sh
+python3 -m pip install -r requirements-dev.txt
+npm ci
+python3 -m coverage erase
+python3 -B -m coverage run -m unittest discover -s tests -v
+python3 -m coverage combine
+python3 -m coverage report
+npm run test:coverage
+```

@@ -12,6 +12,23 @@ AUTOSAVE="$HOME/.copilot/skills/remind-me-again/scripts/autosave.py"
 
 ## Settings and precedence
 
+For a guided change inside Copilot, use
+`Use the /remind-me-again skill: configure`. It shows current settings and asks
+for any missing feature, scope, and mode; cancellation makes no changes.
+Fully specified prompts still work directly. This is a skill conversation,
+not a new npm CLI command.
+
+Inspect settings without changing anything:
+
+```sh
+python3 "$AUTOSAVE" status --cwd "$PWD"
+```
+
+The JSON output includes configured global/repo modes, effective values and
+their sources. Outside Git, repo settings are unavailable (`null`), but global
+settings can still be inspected and configured. Invalid configuration reports
+an error instead of being treated as disabled.
+
 - Each feature (`autosave`, `autoread`) is configured independently.
 - A repo's explicit setting wins over the global one; with neither, the feature is off.
 - `inherit` removes only that feature's key from the settings file.

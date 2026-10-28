@@ -1,5 +1,7 @@
 import importlib.util
+import os
 from pathlib import Path
+import subprocess
 import tempfile
 import sys
 import unittest
@@ -113,6 +115,51 @@ class SaveSummaryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.save()
         self.assertFalse((self.home / "recipe-app").exists())
+
+    def test_cli_saves_stdin_and_reports_invalid_input(self):
+        command = [
+            sys.executable, "-B", str(SCRIPT), "--cwd", str(self.cwd),
+            "--session-id", SESSION_ID, "--session-date", "2026-10-23",
+        ]
+        environment = dict(os.environ, HOME=str(self.home))
+        saved = subprocess.run(
+            command, input="CLI progress.", env=environment,
+            text=True, capture_output=True, check=True,
+        )
+        destination = Path(saved.stdout.strip())
+        self.assertIn("CLI progress.", destination.read_text())
+        original = destination.read_bytes()
+        failed = subprocess.run(
+            command, input=" \n", env=environment, text=True, capture_output=True,
+        )
+        self.assertNotEqual(failed.returncode, 0)
+        self.assertEqual(failed.stdout, "")
+        self.assertIn("Cannot save summary: Summary must not be empty.", failed.stderr)
+        self.assertEqual(destination.read_bytes(), original)
+
+    def test_failed_atomic_replace_preserves_previous_summary_and_cleans_temp(self):
+        destination = self.save("Original.")
+        original = destination.read_bytes()
+        with patch.object(MODULE.os, "replace", side_effect=OSError("Disk error")):
+            with self.assertRaisesRegex(OSError, "Disk error"):
+                self.save("Replacement.")
+        self.assertEqual(destination.read_bytes(), original)
+        self.assertEqual(list(destination.parent.glob(".raw-*")), [])
+
+    def test_rejects_symlink_summary_and_lock_without_changing_targets(self):
+        destination = self.save()
+        target = self.home / "unrelated"
+        target.write_text("Preserve me.")
+        for path in (destination, destination.parent / ".lock"):
+            with self.subTest(path=path):
+                path.unlink()
+                path.symlink_to(target)
+                try:
+                    with self.assertRaisesRegex(ValueError, "symbolic link"):
+                        self.save("Must not overwrite.")
+                    self.assertEqual(target.read_text(), "Preserve me.")
+                finally:
+                    path.unlink()
 
 
 if __name__ == "__main__":

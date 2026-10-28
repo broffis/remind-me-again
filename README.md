@@ -63,3 +63,4 @@ Autosave and autoread stay off unless you enable them.
 - [ ] Add CLI commands for viewing and changing settings.
 - [x] Improve resilience when the runtime session ID is missing, without guessing an ID or saving to the wrong session.
 - [ ] Remove references to the skill's old names and unnecessary backward-compatibility/migration support; only the maintainer has installed it.
+- [ ] Select necessary CI checks/jobs based on changed files while preserving required status checks.
