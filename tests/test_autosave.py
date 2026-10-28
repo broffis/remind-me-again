@@ -115,6 +115,62 @@ class AutosaveTests(unittest.TestCase):
             "default",
         )
 
+    def test_status_lists_mcp_registration_without_exposing_credentials_or_writes(self):
+        self.enable()
+        autosave.configure_transport(self.cwd, "mcp")
+        global_path = autosave.copilot_home() / "mcp-config.json"
+        global_path.parent.mkdir(parents=True, exist_ok=True)
+        project_path = self.repo / ".mcp.json"
+        alternate_path = self.repo / ".github/mcp.json"
+        for path, tools in (
+            (global_path, None),
+            (project_path, ["get_checkpoint_context", "save_checkpoint"]),
+            (alternate_path, []),
+        ):
+            server = {"command": "private-command", "env": {"TOKEN": "private-token"}}
+            if tools is not None:
+                server["tools"] = tools
+            path.write_text(json.dumps({"mcpServers": {"remind-me-again": server}}))
+        before = {path: path.read_bytes() for path in (
+            global_path, project_path, alternate_path,
+        )}
+        result = autosave.configuration_status(self.cwd)
+        self.assertEqual(result["mcp"]["transport"], "mcp")
+        self.assertEqual(len(result["mcp"]["registrations"]), 3)
+        text = autosave.format_configuration_status(result)
+        for expected in ("unspecified", "get_checkpoint_context", "Enabled tools: none"):
+            self.assertIn(expected, text)
+        for secret in ("private-command", "private-token"):
+            self.assertNotIn(secret, json.dumps(result))
+            self.assertNotIn(secret, text)
+        for path, content in before.items():
+            self.assertEqual(path.read_bytes(), content)
+        outside = autosave.configuration_status(self.home)
+        self.assertEqual(outside["mcp"]["transport"], "shell")
+        self.assertEqual(len(outside["mcp"]["registrations"]), 1)
+
+    def test_status_rejects_malformed_mcp_and_ignores_unrelated_servers(self):
+        path = self.repo / ".mcp.json"
+        for config in (
+            {"mcpServers": []},
+            {"remind-me-again": "invalid"},
+            {"remind-me-again": {"tools": "all"}},
+            {"remind-me-again": {"tools": [123]}},
+        ):
+            path.write_text(json.dumps(config))
+            original = path.read_bytes()
+            with self.assertRaises(ValueError):
+                autosave.configuration_status(self.cwd)
+            self.assertEqual(path.read_bytes(), original)
+        path.write_text('{"mcpServers":{"other":{"command":"unrelated"}}}')
+        result = autosave.configuration_status(self.cwd)
+        self.assertEqual(result["mcp"]["registrations"], [])
+        self.assertIn("Registration: not configured", autosave.format_configuration_status(result))
+        self.assertIn(
+            "outside a Git repository",
+            autosave.format_configuration_status(autosave.configuration_status(self.home)),
+        )
+
     def test_status_cli_reports_json_and_rejects_invalid_settings_without_writes(self):
         command = [
             sys.executable, "-B", str(autosave.SCRIPT), "status", "--cwd", str(self.cwd),

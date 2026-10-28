@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
-const { mkdtempSync, readFileSync, existsSync, rmSync } = require('node:fs');
+const { mkdtempSync, readFileSync, writeFileSync, existsSync, rmSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const path = require('node:path');
 const { test } = require('node:test');
@@ -22,10 +22,48 @@ test('help and invalid arguments do not invoke Python', () => {
     [], ['unknown'], ['install', '--update'], ['install', '--skills-dir'],
     ['setup-mcp', '--cwd'], ['setup-mcp', '--approve', '--approve'],
     ['setup-mcp', '--unknown'],
+    ['settings', '--approve'], ['settings', '--skills-dir', '/tmp/skills'],
+    ['settings', '--cwd'], ['settings', '--cwd', 'one', '--cwd', 'two'],
   ]) {
     const result = run(args, { env });
     assert.equal(result.status, 2);
     assert.match(result.stderr, /Usage:/);
+  }
+});
+
+test('settings uses bundled helper without installation and leaves configuration unchanged', () => {
+  const temporary = mkdtempSync(path.join(tmpdir(), 'remind-me-again-settings-'));
+  try {
+    const repo = path.join(temporary, 'project with spaces');
+    assert.equal(spawnSync('git', ['init', '-q', repo]).status, 0);
+    const mcp = path.join(repo, '.mcp.json');
+    const original = JSON.stringify({ mcpServers: {
+      'remind-me-again': {
+        tools: ['get_checkpoint_context', 'save_checkpoint'],
+        env: { TOKEN: 'do-not-display' },
+      },
+    } });
+    writeFileSync(mcp, original);
+    const env = { ...process.env, HOME: temporary, COPILOT_HOME: path.join(temporary, '.copilot') };
+    const result = run(['settings', '--cwd', repo], { env });
+    assert.equal(result.status, 0, result.stderr);
+    for (const value of ['autosave', 'autoread', 'Checkpoint transport: shell',
+      'get_checkpoint_context', 'save_checkpoint', mcp]) {
+      assert.ok(result.stdout.includes(value), result.stdout);
+    }
+    assert.ok(!result.stdout.includes('do-not-display'));
+    assert.equal(readFileSync(mcp, 'utf8'), original);
+    assert.equal(existsSync(path.join(temporary, '.copilot')), false);
+    assert.equal(existsSync(path.join(repo, '.github')), false);
+    const outside = run(['settings'], { env, cwd: temporary });
+    assert.equal(outside.status, 0, outside.stderr);
+    assert.match(outside.stdout, /outside a Git repository/);
+    writeFileSync(mcp, 'not json');
+    const invalid = run(['settings', '--cwd', repo], { env });
+    assert.equal(invalid.status, 1);
+    assert.match(invalid.stderr, /Session-info autosave error/);
+  } finally {
+    rmSync(temporary, { recursive: true });
   }
 });
 

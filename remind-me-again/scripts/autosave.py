@@ -117,6 +117,10 @@ def configuration_status(cwd):
             "global": str(global_path),
             "repo": str(repo_path) if repo_path is not None else None,
         },
+        "mcp": {
+            "transport": repo_settings.get("checkpoint_transport", "shell"),
+            "registrations": mcp_registrations(root),
+        },
         "features": {
             feature: {
                 "global": mode(global_settings, feature),
@@ -130,6 +134,64 @@ def configuration_status(cwd):
             for feature in FEATURES
         },
     }
+
+
+def mcp_registrations(root):
+    paths = [copilot_home() / "mcp-config.json"]
+    if root is not None:
+        paths.extend([root / ".mcp.json", root / ".github/mcp.json"])
+    registrations = []
+    for path in paths:
+        regular_path(path)
+        if not path.exists():
+            continue
+        config = read_json(path)
+        servers = config.get("mcpServers", config)
+        if not isinstance(servers, dict):
+            raise ValueError(f"Expected an MCP server map: {path}")
+        if "remind-me-again" not in servers:
+            continue
+        server = servers["remind-me-again"]
+        if not isinstance(server, dict):
+            raise ValueError(f"Expected an MCP server object: {path}")
+        tools = server.get("tools")
+        if tools is not None and (
+            not isinstance(tools, list) or any(not isinstance(tool, str) for tool in tools)
+        ):
+            raise ValueError(f"Expected MCP tools to be an array of strings: {path}")
+        registrations.append({"path": str(path), "tools": tools})
+    return registrations
+
+
+def format_configuration_status(status):
+    lines = ["Feature    Global   Project  Effective  Source"]
+    for feature, value in status["features"].items():
+        effective = "on" if value["effective"] else "off"
+        lines.append(
+            f"{feature:<10} {value['global']:<8} {value['repo'] or 'n/a':<8} "
+            f"{effective:<10} {value['source']}"
+        )
+    lines.extend([
+        "",
+        f"Project: {status['repo'] or 'outside a Git repository'}",
+        f"Global settings: {status['paths']['global']}",
+        f"Project settings: {status['paths']['repo'] or 'n/a'}",
+        f"Checkpoint transport: {status['mcp']['transport']}",
+        "MCP server: remind-me-again (configuration only; not a runtime health check)",
+    ])
+    registrations = status["mcp"]["registrations"]
+    if not registrations:
+        lines.append("Registration: not configured")
+    for registration in registrations:
+        tools = registration["tools"]
+        lines.append(f"Registration: {registration['path']}")
+        lines.append(
+            "Enabled tools: " + (
+                "unspecified (client default)" if tools is None
+                else ", ".join(tools) if tools else "none"
+            )
+        )
+    return "\n".join(lines)
 
 
 def configuration_paths(scope, cwd):
@@ -471,6 +533,7 @@ def main():
     commands = parser.add_subparsers(dest="command", required=True)
     status = commands.add_parser("status", help="Show configured and effective settings.")
     status.add_argument("--cwd", default=str(Path.cwd()))
+    status.add_argument("--format", choices=("json", "text"), default="json")
     config = commands.add_parser("configure")
     config.add_argument("--scope", choices=("global", "repo"), required=True)
     config.add_argument("--mode", choices=("on", "off", "inherit"), required=True)
@@ -492,7 +555,11 @@ def main():
     args = parser.parse_args()
     try:
         if args.command == "status":
-            print(json.dumps(configuration_status(args.cwd), indent=2))
+            status = configuration_status(args.cwd)
+            print(
+                format_configuration_status(status) if args.format == "text"
+                else json.dumps(status, indent=2)
+            )
         elif args.command == "configure":
             print(configure(args.scope, args.mode, args.cwd, args.feature))
         elif args.command == "configure-transport":
