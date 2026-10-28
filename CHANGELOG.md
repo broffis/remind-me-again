@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/broffis/remind-me-again/compare/v0.3.1...v0.4.0) (2026-10-28)
+
+
+### Features
+
+* guide settings configuration and enforce coverage ([#19](https://github.com/broffis/remind-me-again/issues/19)) ([e2378d8](https://github.com/broffis/remind-me-again/commit/e2378d83853069df019a767bd20d143d492c0716))
+
 ## [0.3.1](https://github.com/broffis/remind-me-again/compare/v0.3.0...v0.3.1) (2026-10-28)
 
 
