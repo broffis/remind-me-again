@@ -61,16 +61,16 @@ npm test
 npm pack
 ```
 
-`npm pack` creates `broffis-remind-me-again-0.1.0.tgz` locally.
+`npm pack` creates `remind-me-again-<version>.tgz` locally.
 To try it without publishing, use an isolated installation directory:
 
 ```sh
-npm exec --package=./broffis-remind-me-again-0.1.0.tgz -- \
+npm exec --package=./remind-me-again-<version>.tgz -- \
   remind-me-again install --skills-dir /path/to/temporary-skills
 ```
 
 Publishing is a separate, explicit action requiring npm authorization for the
-`@broffis` scope. Neither building nor running tests publishes the package.
+`remind-me-again` package. Neither building nor running tests publishes the package.
 The package version is maintained in `package.json`; coordinate it with the
 intended GitHub Release version.
 

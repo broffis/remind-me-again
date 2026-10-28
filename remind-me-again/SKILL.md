@@ -238,7 +238,7 @@ When an installed `agentStop` hook requests a checkpoint:
 1. In the default shell mode, use the exact working directory, session ID, and token in the hook's
    `autosave.py checkpoint` command. The helper uses the session's stored start
    date. Do not replace that command with `save_summary.py`. In opt-in MCP mode,
-   the hook says "Session-summary autosave requested" followed by `session_id: <UUID>`.
+   the hook says "Remind-me-again autosave requested" followed by `session_id: <UUID>`.
    Before composing the summary, call `remind-me-again/get_checkpoint_context`
    once using that exact hook-provided session UUID. If the hook omits the ID,
    use the exact current session UUID from trusted runtime context (for example,
@@ -251,8 +251,6 @@ When an installed `agentStop` hook requests a checkpoint:
    passing the summary as `summary`. Do not refresh the lookup to retry a stale
    save or reuse a token for a summary composed before the lookup. If a newer
    user request arrives, stop this checkpoint rather than saving outdated work.
-   Older detailed hook requests may still supply an explicit token; use that
-   exact token without replacing it through lookup.
    The server is bound to the configured working directory; do not substitute
    another project's writer.
 2. Write a cumulative summary of the whole session so far; it replaces the
@@ -269,7 +267,7 @@ When an installed `agentStop` hook requests a checkpoint:
    still apply in both modes. Never grant permissions, register a server, or
    change transport settings merely to complete a checkpoint. Do not modify the
    raw summary's checkpoint markers.
-4. After success, respond only: "Session-summary autosave executed."
+4. After success, respond only: "Remind-me-again autosave executed."
    If saving fails or permission
    is denied, say so and stop. Do not retry by requesting another agent turn,
    modify settings, or mark the checkpoint successful manually. A later user

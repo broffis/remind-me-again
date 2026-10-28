@@ -63,5 +63,5 @@ Autosave and autoread stay off unless you enable them.
 - [x] Add guided viewing and changing of settings through the skill's `configure` operation (v0.4.0).
 - [x] Add a standalone terminal `settings` command for viewing automation and MCP settings.
 - [x] Improve resilience when the runtime session ID is missing, without guessing an ID or saving to the wrong session.
-- [ ] Remove references to the skill's old names and unnecessary backward-compatibility/migration support; only the maintainer has installed it.
+- [x] Remove references to the skill's old names and unnecessary installation/setup migration support.
 - [ ] Select necessary CI checks/jobs based on changed files while preserving required status checks.

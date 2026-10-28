@@ -225,7 +225,7 @@ class AutosaveTests(unittest.TestCase):
         result = self.stop()
         self.assertEqual(result["decision"], "block")
         self.assertIn("checkpoint", result["reason"])
-        self.assertTrue(result["reason"].startswith("Session-summary autosave requested."))
+        self.assertTrue(result["reason"].startswith("Remind-me-again autosave requested."))
         self.assertIn("SKILL.md", result["reason"])
         self.assertNotIn("autosave executed", result["reason"])
         self.assertNotIn("Implement the change.", result["reason"])
@@ -289,7 +289,7 @@ class AutosaveTests(unittest.TestCase):
         result = self.stop()
         self.assertEqual(
             result["reason"],
-            f"Session-summary autosave requested\nsession_id: {SESSION}",
+            f"Remind-me-again autosave requested\nsession_id: {SESSION}",
         )
         self.assertNotIn("Send the summary through stdin", result["reason"])
         before = autosave.read_state(self.cwd, SESSION)

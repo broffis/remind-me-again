@@ -41,10 +41,11 @@ npx remind-me-again uninstall
 ```
 
 - No `@latest` suffix is required; unversioned commands use npm's package resolution.
-- Pin a reviewed release with `@<version>`, for example `@0.1.0`.
+- Pin a reviewed release with `@<version>`, for example `@0.4.0`.
+- Use v0.4.0 or newer; earlier releases are not supported. Version-pinned
+  downloads remain available, but avoid installing releases older than v0.4.0.
 - ZIP and npm installs can update or uninstall each other.
-- Pass `--skills-dir <directory>` to any action to use a custom installation parent.
-- `install` and `update` also accept `--cwd <directory>` for the project to migrate.
+- Pass `--skills-dir <directory>` to installation actions to use a custom installation parent.
 - Downloading the package alone installs nothing; the explicit action does.
 
 To keep the npm command on your PATH instead of using `npx`:
@@ -56,21 +57,6 @@ remind-me-again install
 
 Here, npm's `-g` installs the command globally; the separate `install` action
 copies the skill to the same per-user location as the `npx` command.
-
-## Migrating from `session-summary`
-
-This tool was previously named `session-summary` (npm: `@broffis/session-summary-skill`).
-Run `npx remind-me-again update` (or `install`) from your project, with Copilot closed. It:
-
-- removes the old managed `~/.copilot/skills/session-summary` skill once its setup is migrated;
-- renames the project's and global `session-summary` MCP server to `remind-me-again`, and repoints its hooks;
-- renames the saved tool approvals for the current repository.
-
-Saved summaries, rollups, and settings are untouched (storage still lives under `~/.copilot/session-info`).
-Only recognized, unmodified setup is rewritten. If the old install was modified, is a symlink,
-or any old setup is unrecognized, everything old is left in place and the reason is printed.
-Other projects are not scanned: run `update` from each (use `--cwd <directory>`)
-to migrate it. Until then their hooks still point at the removed skill.
 
 ## Update
 

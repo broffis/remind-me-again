@@ -88,7 +88,7 @@ To restore the default, use `--mode shell`. The choice is stored per repo as
 
 ## How MCP checkpoints behave
 
-- The hook message says "Session-summary autosave requested" followed by
+- The hook message says "Remind-me-again autosave requested" followed by
   `session_id: <UUID>`, using the exact ID from the hook event.
 - The agent uses that ID to look up the pending checkpoint, composes the summary,
   then saves with the returned token. Runtime session metadata is a fallback
@@ -103,7 +103,8 @@ To restore the default, use `--mode shell`. The choice is stored per repo as
   falling back to shell or changing permissions.
 - Existing registrations must enable the lookup tool: rerun setup (Copilot
   closed if using `--approve`) or add `get_checkpoint_context` via `/mcp`.
-  Setup upgrades an identical save-only registration. Reload the server and skill afterward.
+  Setup rejects conflicting registrations rather than upgrading them.
+  Reload the server and skill afterward.
 
 Installing or updating never registers the server, selects MCP mode, or
 pre-approves tools. Uninstall cleans recognized project registration; global

@@ -13,7 +13,6 @@ from storage import project_directory
 
 
 SERVER = "remind-me-again"
-LEGACY_SERVER = "session-summary"
 APPROVAL = {"kind": "mcp", "serverName": SERVER, "toolName": "save_checkpoint"}
 CONTEXT_APPROVAL = {
     "kind": "mcp", "serverName": SERVER, "toolName": "get_checkpoint_context"
@@ -62,9 +61,7 @@ def plan_setup(cwd, approve=False):
     if not isinstance(servers, dict):
         raise ValueError(f"Expected an MCP server map: {mcp_path}")
     if SERVER in servers and servers[SERVER] != server:
-        previous = dict(server, tools=["save_checkpoint"])
-        if servers[SERVER] != previous:
-            raise ValueError(f"Refusing to replace an existing {SERVER} server: {mcp_path}")
+        raise ValueError(f"Refusing to replace an existing {SERVER} server: {mcp_path}")
     servers[SERVER] = server
 
     hook_path = root / ".github/hooks/session-info.json"
@@ -133,9 +130,7 @@ def owned_server_args(server, installation, path):
         or args[:3] != ["-B", script, "--cwd"]
         or not isinstance(args[3], str)
         or not isinstance(server.get("command"), str)
-        or server.get("tools") not in (
-            ["save_checkpoint"], ["get_checkpoint_context", "save_checkpoint"]
-        )
+        or server.get("tools") != ["get_checkpoint_context", "save_checkpoint"]
         or set(server) - {"type", "command", "args", "env", "tools"}
     ):
         raise ValueError(f"Refusing to remove an unrecognized MCP server: {path}")
@@ -246,108 +241,7 @@ def plan_removal(cwd, installation, global_cleanup=False):
     return changes
 
 
-def plan_migration(cwd, installation, legacy_installation):
-    """Plan moving recognized session-summary setup to this installation.
-
-    Covers the current repository and global configuration; other projects are
-    migrated when this runs from them. Nothing unrecognized is rewritten.
-    """
-    cwd = Path(cwd).expanduser().resolve(strict=True)
-    installation = Path(installation).resolve()
-    legacy_installation = Path(legacy_installation).resolve()
-    root = repository(cwd)
-    changes = []
-
-    def migrate_server(path):
-        config = existing_object(path)
-        servers = config.get("mcpServers", config)
-        if not isinstance(servers, dict):
-            raise ValueError(f"Expected an MCP server map: {path}")
-        if LEGACY_SERVER not in servers:
-            return
-        server = servers[LEGACY_SERVER]
-        args = owned_server_args(server, legacy_installation, path)
-        if SERVER in servers:
-            raise ValueError(f"Both old and new MCP servers are registered: {path}")
-        moved = dict(server)
-        moved["args"] = ["-B", str(installation / "scripts/checkpoint_mcp.py"), *args[2:]]
-        del servers[LEGACY_SERVER]
-        servers[SERVER] = moved
-        changes.append((path, config))
-
-    def migrate_hooks(path):
-        regular_path(path)
-        if not path.exists():
-            return
-        config = read_json(path)
-        hooks = config.get("hooks")
-        if config.get("version") != 1 or not isinstance(hooks, dict):
-            raise ValueError(f"Refusing to migrate an unrecognized hook: {path}")
-        old_script = str(legacy_installation / "scripts/autosave.py")
-        new_script = str(installation / "scripts/autosave.py")
-        changed = False
-        for event in EVENTS:
-            entries = hooks.get(event, [])
-            if not isinstance(entries, list):
-                raise ValueError(f"Invalid hook entries: {path}")
-            for entry in entries:
-                if (
-                    isinstance(entry, dict) and isinstance(entry.get("args"), list)
-                    and entry["args"][:1] == [old_script]
-                ):
-                    if (
-                        entry["args"] != [old_script, "hook", event]
-                        or entry.get("type") != "command"
-                        or not isinstance(entry.get("exec"), str)
-                        or entry.get("timeoutSec") != 10
-                        or set(entry) - {"type", "exec", "args", "timeoutSec"}
-                    ):
-                        raise ValueError(f"Refusing to migrate an unrecognized hook: {path}")
-                    entry["args"] = [new_script, "hook", event]
-                    changed = True
-        if changed:
-            changes.append((path, config))
-
-    if root is not None:
-        migrate_server(root / ".mcp.json")
-        migrate_server(root / ".github/mcp.json")
-        migrate_hooks(root / ".github/hooks/session-info.json")
-        permissions_path = copilot_home() / "permissions-config.json"
-        if permissions_path.exists():
-            permissions = existing_object(permissions_path)
-            locations = permissions.get("locations", {})
-            if not isinstance(locations, dict):
-                raise ValueError("Permission locations must be an object.")
-            location = locations.get(permission_location(cwd), {})
-            if not isinstance(location, dict):
-                raise ValueError("Saved permission location must be an object.")
-            approvals = location.get("tool_approvals", [])
-            if not isinstance(approvals, list) or any(
-                not isinstance(approval, dict) for approval in approvals
-            ):
-                raise ValueError("Saved tool approvals must be an array of objects.")
-            migrated = []
-            for approval in approvals:
-                if (
-                    approval.get("kind") == "mcp"
-                    and approval.get("serverName") == LEGACY_SERVER
-                    and approval.get("toolName") in (
-                        APPROVAL["toolName"], CONTEXT_APPROVAL["toolName"]
-                    )
-                    and len(approval) == 3
-                ):
-                    approval = dict(approval, serverName=SERVER)
-                if approval not in migrated:
-                    migrated.append(approval)
-            if migrated != approvals:
-                location["tool_approvals"] = migrated
-                changes.append((permissions_path, permissions))
-    migrate_server(copilot_home() / "mcp-config.json")
-    migrate_hooks(copilot_home() / "hooks/session-info.json")
-    return changes
-
-
-def remove_setup(changes, action="Cleanup"):
+def remove_setup(changes):
     completed = []
     try:
         for path, value in changes:
@@ -358,7 +252,7 @@ def remove_setup(changes, action="Cleanup"):
             completed.append(str(path))
     except (OSError, ValueError) as error:
         raise OSError(
-            f"{action} incomplete: {error}. Already updated: "
+            f"Cleanup incomplete: {error}. Already updated: "
             f"{', '.join(completed) or 'none'}. Correct the error and rerun."
         ) from error
 
