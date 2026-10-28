@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "autoread": true,
+  "autosave": true,
+  "checkpoint_transport": "mcp"
+}

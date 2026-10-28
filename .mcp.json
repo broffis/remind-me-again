@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "remind-me-again": {
+      "type": "stdio",
+      "command": "/Library/Frameworks/Python.framework/Versions/3.14/bin/python3",
+      "args": [
+        "-B",
+        "/Users/abf7934/.copilot/skills/remind-me-again/scripts/checkpoint_mcp.py",
+        "--cwd",
+        "/Users/abf7934/personal/session-info-skill"
+      ],
+      "tools": [
+        "get_checkpoint_context",
+        "save_checkpoint"
+      ],
+      "env": {
+        "COPILOT_HOME": "/Users/abf7934/.copilot"
+      }
+    }
+  }
+}
