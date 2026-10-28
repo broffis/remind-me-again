@@ -10,6 +10,11 @@ Installation copies the skill and its Python helpers into
 settings. Do not use `copilot skill add <SKILL.md URL>`: it installs only the
 Markdown file and omits the required helpers.
 
+The skill is installed once for the current user and is available across
+projects. No `--global` flag is needed or accepted for `install` or `update`.
+The `--global` flag is only an uninstall option for cleaning up global
+automation setup; it does not control where the skill is installed.
+
 ## Install from a ZIP
 
 1. Download the ZIP from [GitHub Releases](https://github.com/broffis/remind-me-again/releases) and unzip it.
@@ -31,20 +36,31 @@ Requires Node.js 18+. This is another entry point to the same Python installer
 
 ```sh
 npx remind-me-again install
-npx remind-me-again@latest update
-npx remind-me-again@latest uninstall
+npx remind-me-again update
+npx remind-me-again uninstall
 ```
 
+- No `@latest` suffix is required; unversioned commands use npm's package resolution.
 - Pin a reviewed release with `@<version>`, for example `@0.1.0`.
 - ZIP and npm installs can update or uninstall each other.
 - Pass `--skills-dir <directory>` to any action to use a custom installation parent.
 - `install` and `update` also accept `--cwd <directory>` for the project to migrate.
 - Downloading the package alone installs nothing; the explicit action does.
 
+To keep the npm command on your PATH instead of using `npx`:
+
+```sh
+npm install -g remind-me-again
+remind-me-again install
+```
+
+Here, npm's `-g` installs the command globally; the separate `install` action
+copies the skill to the same per-user location as the `npx` command.
+
 ## Migrating from `session-summary`
 
 This tool was previously named `session-summary` (npm: `@broffis/session-summary-skill`).
-Run `npx remind-me-again@latest update` (or `install`) from your project, with Copilot closed. It:
+Run `npx remind-me-again update` (or `install`) from your project, with Copilot closed. It:
 
 - removes the old managed `~/.copilot/skills/session-summary` skill once its setup is migrated;
 - renames the project's and global `session-summary` MCP server to `remind-me-again`, and repoints its hooks;
@@ -76,7 +92,7 @@ and leave opt-in settings unchanged.
 ```sh
 python3 install.py --uninstall --cwd /absolute/path/to/project
 # or
-npx remind-me-again@latest uninstall --cwd /absolute/path/to/project
+npx remind-me-again uninstall --cwd /absolute/path/to/project
 ```
 
 This removes the unmodified managed skill and the project's recognized setup:

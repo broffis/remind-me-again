@@ -25,8 +25,15 @@ Project paths are relative to your home directory.
 
 ## Quick start
 
-Requires **Python 3.9+ on macOS or Linux** and Copilot CLI. Download the ZIP
-from [GitHub Releases](https://github.com/broffis/remind-me-again/releases),
+Requires **Python 3.9+ on macOS or Linux** and Copilot CLI. With Node.js 18+,
+install using:
+
+```sh
+npx remind-me-again install
+```
+
+No `@latest` suffix is required. Alternatively, download the ZIP from
+[GitHub Releases](https://github.com/broffis/remind-me-again/releases),
 unzip it, and run:
 
 ```sh
