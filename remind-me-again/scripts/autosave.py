@@ -252,7 +252,10 @@ def prompt_token(payload):
 def request(cwd, session_id, state):
     """Ask the existing agent for one permission-respecting save continuation."""
     if checkpoint_transport(cwd) == "mcp":
-        return {"decision": "block", "reason": "Session-summary autosave requested"}
+        return {
+            "decision": "block",
+            "reason": f"Session-summary autosave requested\nsession_id: {session_id}",
+        }
     command = shlex.join([
         sys.executable, str(SCRIPT), "checkpoint", "--cwd", str(cwd),
         "--session-id", session_id, "--token", state["turn"],

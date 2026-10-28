@@ -163,13 +163,34 @@ class AutosaveTests(unittest.TestCase):
         self.start()
         self.prompt()
         result = self.stop()
-        self.assertEqual(result["reason"], "Session-summary autosave requested")
+        self.assertEqual(
+            result["reason"],
+            f"Session-summary autosave requested\nsession_id: {SESSION}",
+        )
         self.assertNotIn("Send the summary through stdin", result["reason"])
         before = autosave.read_state(self.cwd, SESSION)
         self.prompt(result["reason"], START + 2)
         self.assertEqual(autosave.read_state(self.cwd, SESSION), before)
+        destination = autosave.checkpoint(
+            self.cwd, SESSION, before["turn"], "MCP continuation progress."
+        )
+        self.assertIn("MCP continuation progress.", destination.read_text())
+        self.assertEqual(self.event("agentStop", stop_hook_active=True), {})
         autosave.configure_transport(self.cwd, "shell")
         self.assertEqual(autosave.checkpoint_transport(self.cwd), "shell")
+
+    def test_mcp_modified_session_id_invalidates_pending_token(self):
+        self.enable()
+        autosave.configure_transport(self.cwd, "mcp")
+        self.start()
+        self.prompt()
+        result = self.stop()
+        token = autosave.read_state(self.cwd, SESSION)["turn"]
+        other_session = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
+        self.prompt(result["reason"].replace(SESSION, other_session), START + 2)
+        with self.assertRaisesRegex(ValueError, "stale"):
+            autosave.checkpoint(self.cwd, SESSION, token, "Old progress.")
+        self.assertIsNone(autosave.read_state(self.cwd, SESSION)["requested"])
 
     def test_transport_configuration_does_not_enable_autosave(self):
         autosave.configure_transport(self.cwd, "mcp")
