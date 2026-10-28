@@ -6,6 +6,7 @@ const path = require('node:path');
 const usage = `Usage: remind-me-again <install|update|uninstall> [--cwd <directory>] [--skills-dir <directory>]
        remind-me-again uninstall [--cwd <directory>] [--global] [--dry-run] [--skills-dir <directory>]
        remind-me-again setup-mcp [--cwd <directory>] [--skills-dir <directory>] [--approve] [--dry-run]
+       remind-me-again settings [--cwd <directory>]
 
 Installs the bundled Copilot skill using Python 3.9+ on macOS or Linux.
 Install/update never change automation settings. They also migrate a managed
@@ -14,6 +15,7 @@ setup-mcp explicitly enables project MCP autosave using the installed skill.
 --approve saves only this repository's checkpoint lookup/save permissions; close Copilot first.
 Uninstall removes current project setup/approvals; --global also removes global setup.
 Saved summaries are preserved. Close Copilot before uninstalling.
+settings lists automation settings and MCP configuration without changing files.
 `;
 
 function main(args) {
@@ -24,7 +26,8 @@ function main(args) {
 
   const [action, ...options] = args;
   const setup = action === 'setup-mcp';
-  const validAction = ['install', 'update', 'uninstall', 'setup-mcp'].includes(action);
+  const settings = action === 'settings';
+  const validAction = ['install', 'update', 'uninstall', 'setup-mcp', 'settings'].includes(action);
   let validOptions = options.length === 0 || (
     options.length === 2 && options[0] === '--skills-dir'
     && options[1].length > 0 && !options[1].startsWith('-')
@@ -42,7 +45,7 @@ function main(args) {
         : action === 'uninstall' ? ['--global', '--dry-run'] : [];
       if (flags.includes(option)) {
         setupOptions.push(option);
-      } else if (['--cwd', '--skills-dir'].includes(option)
+      } else if ((settings ? ['--cwd'] : ['--cwd', '--skills-dir']).includes(option)
         && options[i + 1] && !options[i + 1].startsWith('-')) {
         const value = options[++i];
         if (option === '--skills-dir') {
@@ -64,13 +67,16 @@ function main(args) {
 
   const installer = setup
     ? path.join(skillsDirectory, 'remind-me-again', 'scripts', 'setup_mcp.py')
+    : settings ? path.resolve(__dirname, '..', 'remind-me-again/scripts/autosave.py')
     : path.resolve(__dirname, '..', 'install.py');
   if (setup && !require('node:fs').existsSync(installer)) {
     process.stderr.write('Install/update the skill before running setup-mcp.\n');
     return 1;
   }
   const pythonArgs = ['-B', installer];
-  if (!setup && action !== 'install') {
+  if (settings) {
+    pythonArgs.push('status', '--format', 'text');
+  } else if (!setup && action !== 'install') {
     pythonArgs.push(`--${action}`);
   }
   pythonArgs.push(...setupOptions);

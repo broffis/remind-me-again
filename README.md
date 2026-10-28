@@ -43,12 +43,12 @@ python3 install.py
 Then in Copilot CLI run `/skills reload` and `/skills info remind-me-again`.
 Autosave and autoread stay off unless you enable them.
 
-| Prompt | Result |
-| --- | --- |
-| `Use the /remind-me-again skill: save` | Save current session progress. |
-| `Use the /remind-me-again skill: read` | Retrieve the latest rollup plus uncovered raw progress. |
-| `Use the /remind-me-again skill: review --all` | Review every rollup plus uncovered raw progress. |
-| `Use the /remind-me-again skill: rollup` | Create or refresh today's rollup. |
+| Prompt                                         | Result                                                  |
+| ---------------------------------------------- | ------------------------------------------------------- |
+| `Use the /remind-me-again skill: save`         | Save current session progress.                          |
+| `Use the /remind-me-again skill: read`         | Retrieve the latest rollup plus uncovered raw progress. |
+| `Use the /remind-me-again skill: review --all` | Review every rollup plus uncovered raw progress.        |
+| `Use the /remind-me-again skill: rollup`       | Create or refresh today's rollup.                       |
 
 ## Documentation
 
@@ -60,7 +60,8 @@ Autosave and autoread stay off unless you enable them.
 
 ## Feature TODOs
 
-- [ ] Add CLI commands for viewing and changing settings.
+- [x] Add guided viewing and changing of settings through the skill's `configure` operation (v0.4.0).
+- [x] Add a standalone terminal `settings` command for viewing automation and MCP settings.
 - [x] Improve resilience when the runtime session ID is missing, without guessing an ID or saving to the wrong session.
 - [ ] Remove references to the skill's old names and unnecessary backward-compatibility/migration support; only the maintainer has installed it.
 - [ ] Select necessary CI checks/jobs based on changed files while preserving required status checks.

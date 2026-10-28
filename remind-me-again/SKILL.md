@@ -23,12 +23,35 @@ argument parser.
 | `read` | Follow Read saved session info with default retrieval. |
 | `review --all` | Follow Read saved session info with `retrieval.py --all`, then synthesize all retrieved history. |
 | `rollup` | Follow Create or refresh a rollup. |
+| `settings` | Follow View settings below; display current settings without starting configuration. |
 | `configure [--feature <autosave\|autoread>] [--scope <repo\|global>] [--mode <on\|off\|inherit>]` | Follow Configure settings below; guide the user through missing choices. |
 
 For example, "Use the /remind-me-again skill: read" selects the read operation.
 Do not combine operations or install the skill unless the user requests it.
 If invoked without an operation and the surrounding request is unclear, ask
 which operation to run. Natural-language requests remain supported.
+
+## View settings
+
+For `settings` (including `/remind-me-again settings` when invoked through
+Copilot's skill interface), run the installed helper:
+
+```sh
+python3 "/path/to/remind-me-again/scripts/autosave.py" status \
+  --format text --cwd "/absolute/path/to/user-working-directory"
+```
+
+Use this skill's actual base directory and the user's current working directory.
+Display the autosave/autoread configured modes, effective values and sources,
+and MCP transport, registration paths and configured tools from the result.
+`inherit` means no explicit override; `n/a` means no Git repository. MCP output
+describes configuration only, not loaded servers, runtime health, or approvals.
+Do not expose server commands, arguments or environment values.
+
+This operation is read-only. Do not start the configure walkthrough, ask for
+changes, install hooks, register/start MCP servers, grant permissions, or change
+settings. If the helper fails, report the error rather than guessing values or
+repairing configuration. Do not read summaries to answer a settings request.
 
 ## Configure settings
 
