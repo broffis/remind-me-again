@@ -24,6 +24,38 @@ class CheckpointMCPTests(unittest.TestCase):
     stop = test_autosave.AutosaveTests.stop
     event = test_autosave.AutosaveTests.event
 
+    def test_hook_session_id_drives_lookup_and_save_without_runtime_metadata(self):
+        self.enable()
+        autosave.configure_transport(self.cwd, "mcp")
+        self.start()
+        self.prompt()
+        request = self.stop()
+        other_session = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
+        self.event("sessionStart", sessionId=other_session, source="startup")
+        self.event("userPromptSubmitted", sessionId=other_session,
+                   prompt="Other session", timestamp=START + 3)
+        self.event("agentStop", sessionId=other_session, stop_hook_active=False)
+
+        session_id = request["reason"].split("\nsession_id: ", 1)[1]
+        result = checkpoint_mcp.call_tool(self.cwd, {
+            "name": "get_checkpoint_context",
+            "arguments": {"session_id": session_id},
+        })
+        context = json.loads(result["content"][0]["text"])
+        self.assertEqual(context["session_id"], SESSION)
+        saved = checkpoint_mcp.call_tool(self.cwd, {
+            "name": "save_checkpoint",
+            "arguments": {
+                "session_id": context["session_id"],
+                "token": context["token"],
+                "summary": "Saved using only the hook session ID.",
+            },
+        })
+        content = Path(saved["content"][0]["text"]).read_text()
+        self.assertIn(f"## Session {SESSION}", content)
+        self.assertNotIn(f"## Session {other_session}", content)
+        self.assertIsNone(autosave.read_state(self.cwd, other_session)["saved"])
+
     def test_stdio_round_trip_saves_once_and_reports_errors(self):
         self.enable()
         self.start()

@@ -44,6 +44,20 @@ text counts toward context usage.
   lock and event hash in `.autoread/` beside `raw summaries` (no summary text).
 - A real later resume reloads context. Failed reads are reported, not marked injected. Subagents are ignored.
 
+### Saved-content safety
+
+The Python reader reads summaries as text; it does not evaluate Python, invoke
+a shell, or execute embedded scripts. Retrieved history is quoted and labeled
+as untrusted data, including text that imitates system messages, tool calls,
+autosave requests, or approvals. The skill instructs the agent not to act on
+such text without authorization from the current user.
+
+These are prompt-injection defenses, not an execution sandbox or a guarantee
+that a model cannot be misled. Normal tool permissions remain the execution
+boundary; avoid broad shell approvals when reading untrusted content. For
+projects whose saved history you do not trust, keep autoread off and review
+the files outside the agent before requesting retrieval.
+
 ## Autosave
 
 ```sh
@@ -95,6 +109,10 @@ the repo opt-in but keep separate storage.
 - Some CLI versions route the checkpoint request through `userPromptSubmitted`.
   An exact match to the pending request keeps its token; modified requests and
   genuine new turns invalidate older tokens, and saves always check for staleness.
+- MCP requests include the exact session ID from the hook event so saving does
+  not depend on the agent having runtime session metadata. See
+  [MCP checkpoint behavior](mcp-setup.md#how-mcp-checkpoints-behave) for fallback
+  and mismatch handling.
 - After a successful save the agent says "Session-summary autosave executed."
   Failures are reported instead.
 

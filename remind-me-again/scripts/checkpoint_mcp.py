@@ -31,7 +31,8 @@ TOOL = {
 CONTEXT_TOOL = {
     "name": "get_checkpoint_context",
     "description": (
-        "Read the pending checkpoint for the exact runtime-provided session UUID "
+        "Read the pending checkpoint for the exact hook-provided session UUID "
+        "(or trusted runtime UUID when absent) "
         "in this configured project. Never guess a session or select the newest. "
         "Call once before composing the summary; do not refresh after a stale save."
     ),

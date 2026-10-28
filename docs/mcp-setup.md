@@ -88,13 +88,17 @@ To restore the default, use `--mode shell`. The choice is stored per repo as
 
 ## How MCP checkpoints behave
 
-- The hook message is only "Session-summary autosave requested".
-- The agent looks up its own trusted runtime session UUID, composes the summary,
-  then saves with the returned token. No session is chosen by recency or scanning.
+- The hook message says "Session-summary autosave requested" followed by
+  `session_id: <UUID>`, using the exact ID from the hook event.
+- The agent uses that ID to look up the pending checkpoint, composes the summary,
+  then saves with the returned token. Runtime session metadata is a fallback
+  only when the hook omits the ID. A malformed hook ID, conflicting IDs, or no
+  ID from either source stops the save with an explicit error. No session is
+  chosen by recency or scanning.
 - A new user turn invalidates the token; the agent must not refresh it to retry
   an outdated summary.
-- IDs and tokens may appear in tool details. They are omitted from the hook
-  message but are not secrets or authentication.
+- Session IDs appear in the hook message and tool details; tokens appear only
+  in tool details. Neither is a secret or authentication.
 - If a tool is unavailable, denied, or fails, the agent reports it without
   falling back to shell or changing permissions.
 - Existing registrations must enable the lookup tool: rerun setup (Copilot
